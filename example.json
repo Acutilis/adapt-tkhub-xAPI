@@ -1,0 +1,26 @@
+// to be added to course/config.json
+
+{
+    "_tkhub-xAPI": {
+        "_isEnabled": true,
+        "_channels": [
+            {
+                "_name": "HardcodedLaunch",
+                "_isEnabled": false,
+                "_tracksEvents": true,
+                "_tracksState": true,
+                "_isStateSource": true,
+                "_isStateStore": true,
+                "_isLaunchManager": true,
+                "_ignoreEvents": [],
+
+                "_endPoint": "http://talll.acutilis.com/data/xAPI/",
+                "_xapiLaunchMethod": "hardcoded",
+                "_isFakeLRS": false,
+                "_mbox": "mailto:johndoe@example.com",
+                "_fullName": "John Doe",
+                "_userName": "c4d767afbf0982d4207f1bcd2e217fd7deb86f13",
+                "_password": "4a780c421e846d0c8ce63e3f0467c02a52ed7de6"
+            }
+}
+
