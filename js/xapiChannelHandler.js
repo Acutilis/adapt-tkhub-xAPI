@@ -184,12 +184,15 @@ define([
     processEvent: function(channel, eventSourceName, eventName, args) {
       // In this xapi channel handler we are just going to compose & deliver the message corresponding to this event
       // msgComposer is a reference to the message composer that this particular channel handler uses.
-      message = msgComposer.compose(eventSourceName, eventName, args)
-      if (message) {
+      var isEventIgnored = _.contains(channel._ignoreEvents,eventName);
+      if ( !isEventIgnored && channel._reportsEvents ) {
+        message = msgComposer.compose(eventSourceName, eventName, args)
+        if (message) {
           // in this case, the message is an INCOMPLETE xAPI statement, it's missing the Actor.
           // We add it here
           message.actor = this._ACTOR;
           this.deliverMsg(message, channel);
+        }
       }
 
       // call specific event handling function for the event being processed, if it exists 
