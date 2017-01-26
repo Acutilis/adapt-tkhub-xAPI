@@ -42,7 +42,7 @@ Here is the description of the settings:
 The settings for **each** channel are:
 
 - `_name`: An arbitrary name for the channel. It is used for logging to the browser's console, so you can clearly see from which channels the messages are coming.
-- `_isEnabled`, `_tracksEvents`, `_tracksState`, `_isStateSource`, `_isStateStore`, `_isLaunchManager` and `_ignoreEvents`: These are explained in [the adatp-trackingHub documentation](https://github.com/Acutilis/adapt-trackingHub/blob/master/README.md). These settings (plus `_name`) are common to any type of channel. That is, any channel handler should implement them.
+- `_isEnabled`, `_reportsEvents`, `_tracksState`, `_isStateSource`, `_isStateStore`, `_isLaunchManager` and `_ignoreEvents`: These are explained in [the adatp-trackingHub documentation](https://github.com/Acutilis/adapt-trackingHub/blob/master/README.md). These settings (plus `_name`) are common to any type of channel. That is, any channel handler should implement them.
 
 The following settings are _specific_ for the adapt-tkhub-xAPI extension:
 

@@ -7,7 +7,7 @@
             {
                 "_name": "HardcodedLaunch",
                 "_isEnabled": false,
-                "_tracksEvents": true,
+                "_reportsEvents": true,
                 "_tracksState": true,
                 "_isStateSource": true,
                 "_isStateStore": true,
