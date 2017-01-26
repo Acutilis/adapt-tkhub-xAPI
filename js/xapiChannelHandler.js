@@ -206,7 +206,7 @@ define([
     },
 
     deliverMsg: function(message, channel) {
-      if (!channel._isFakeLRS) {
+      if (channel._isFakeLRS) {
         console.log('xapiChannelHandler ' + channel._name + ': FAKE POST of statement:', message);
         return;
       }
