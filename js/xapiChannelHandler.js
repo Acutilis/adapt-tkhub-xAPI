@@ -209,15 +209,17 @@ define([
     },
 
     deliverMsg: function(message, channel) {
-       // USE THE WRAPPER of this channel to send the statement to the LRS
-       if (!channel._isFakeLRS) {
-         var wrapper = this._wrappers[channel._name];
-         wrapper.sendStatement(message, function() {});
-         //console.log('xapiChannelHandler: sent statement ', message.text, message);
-         console.log('xapiChannelHandler ' + channel._name + ': sent statement', message);
-       } else {
-           console.log('xapiChannelHandler ' + channel._name + ': FAKE POST of statement:', message);
-       }
+      if (channel._isFakeLRS) {
+        console.log('xapiChannelHandler ' + channel._name + ': FAKE POST of statement:', message);
+        return;
+      }
+
+      // USE THE WRAPPER of this channel to send the statement to the LRS
+      var wrapper = this._wrappers[channel._name];
+      console.log('xapiChannelHandler ' + channel._name + ': sending statement', message);
+      wrapper.sendStatement(message, _.bind(function() {
+        console.log('xapiChannelHandler ' + channel._name + ': sent statement', message);
+      }, this));
     },
 
 
@@ -233,19 +235,22 @@ define([
       // IMPORTANT: this function is always called from trackingHub NOT from within this channel handler!
       // Call the xapiwrapper to save state.
       var wrapper = this._wrappers[channel._name];
-      wrapper.sendState(courseID, this._ACTOR, this._STATE_ID, null, state);
-      console.log('xapiChannelHandler: state saved');
+      console.log('xapiChannelHandler: state saving');
+      wrapper.sendState(courseID, this._ACTOR, this._STATE_ID, null, state, null, null, _.bind(function(response, body) {
+        console.log('xapiChannelHandler: state saved');
+      }, this));
     },
 
     loadState: function(channel, courseID) {
-      var state;
       var wrapper = this._wrappers[channel._name];
-      var fullState = wrapper.getState(courseID, this._ACTOR, this._STATE_ID);
-      if (!fullState || _.isArray(fullState)) {
-          fullState = {};
-      }
-      console.log('xapiChannelHandler: state loaded');
-      this.trigger('stateLoaded', fullState);
+      console.log('xapiChannelHandler: state retrieving');
+      wrapper.getState(courseID, this._ACTOR, this._STATE_ID, null, null, _.bind(function(response, state) {
+        if (!state || _.isArray(state)) {
+          state = {};
+        }
+        console.log('xapiChannelHandler: state retrieved');
+        this.trigger('stateLoaded', state);
+      }, this));
     },
 
 
