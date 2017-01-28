@@ -1,7 +1,7 @@
 {
   "name": "adapt-tkhub-xAPI",
   "version": "0.2.0",
-  "framework": "^2.0.0",
+  "framework": "^2.0.15",
   "homepage": "https://github.com/Acutilis/adapt-tkhub-xAPI",
   "issues": "https://github.com/Acutilis/adapt-tkhub-xAPI/issues",
   "repository": "git://github.com/Acutilis/adapt-tkhub-xAPI.git",
