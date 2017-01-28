@@ -12,6 +12,7 @@ define([
     _OWNSTATEKEY: 'xapi',
     _OWNSTATE: null,
     _ACTOR: null,
+    _REGISTRATION: null,
     _CTXT_ACTIVITIES: null, // necessary for adl-xapi-launch
 
     _wrappers: {}, 
@@ -30,7 +31,7 @@ define([
       this._config = Adapt.config.has('_tkhub-xAPI')
         ? Adapt.config.get('_tkhub-xAPI')
         : false;
-      if (!this._config )  
+      if (!this._config )
         return false;
 
       this._config._channels = this._config._channels || [];
@@ -236,7 +237,7 @@ define([
       // Call the xapiwrapper to save state.
       var wrapper = this._wrappers[channel._name];
       console.log('xapiChannelHandler: state saving');
-      wrapper.sendState(courseID, this._ACTOR, this._STATE_ID, null, state, null, null, _.bind(function(response, body) {
+      wrapper.sendState(courseID, this._ACTOR, this._STATE_ID, this._REGISTRATION, state, null, null, _.bind(function(response, body) {
         console.log('xapiChannelHandler: state saved');
       }, this));
     },
@@ -244,9 +245,12 @@ define([
     loadState: function(channel, courseID) {
       var wrapper = this._wrappers[channel._name];
       console.log('xapiChannelHandler: state retrieving');
-      wrapper.getState(courseID, this._ACTOR, this._STATE_ID, null, null, _.bind(function(response, state) {
-        if (!state || _.isArray(state)) {
+      // 5th param is 'since', we're not using it. 4th param sh/b this._REGISTRATION
+      wrapper.getState(courseID, this._ACTOR, this._STATE_ID, this._REGISTRATION, null, _.bind(function(response, result) {
+        if (!result || _.isArray(result) || result.error) {
           state = {};
+        } else {
+          state = result;
         }
         console.log('xapiChannelHandler: state retrieved');
         this.trigger('stateLoaded', state);
