@@ -12,6 +12,7 @@ define([
     _OWNSTATEKEY: 'xapi',
     _OWNSTATE: null,
     _ACTOR: null,
+    _REGISTRATION: null,
     _CTXT_ACTIVITIES: null, // necessary for adl-xapi-launch
 
     _wrappers: {}, 
@@ -30,7 +31,7 @@ define([
       this._config = Adapt.config.has('_tkhub-xAPI')
         ? Adapt.config.get('_tkhub-xAPI')
         : false;
-      if (!this._config )  
+      if (!this._config )
         return false;
 
       this._config._channels = this._config._channels || [];
@@ -209,15 +210,17 @@ define([
     },
 
     deliverMsg: function(message, channel) {
-       // USE THE WRAPPER of this channel to send the statement to the LRS
-       if (!channel._isFakeLRS) {
-         var wrapper = this._wrappers[channel._name];
-         wrapper.sendStatement(message, function() {});
-         //console.log('xapiChannelHandler: sent statement ', message.text, message);
-         console.log('xapiChannelHandler ' + channel._name + ': sent statement', message);
-       } else {
-           console.log('xapiChannelHandler ' + channel._name + ': FAKE POST of statement:', message);
-       }
+      if (channel._isFakeLRS) {
+        console.log('xapiChannelHandler ' + channel._name + ': FAKE POST of statement:', message);
+        return;
+      }
+
+      // USE THE WRAPPER of this channel to send the statement to the LRS
+      var wrapper = this._wrappers[channel._name];
+      console.log('xapiChannelHandler ' + channel._name + ': sending statement', message);
+      wrapper.sendStatement(message, _.bind(function() {
+        console.log('xapiChannelHandler ' + channel._name + ': sent statement', message);
+      }, this));
     },
 
 
@@ -233,19 +236,25 @@ define([
       // IMPORTANT: this function is always called from trackingHub NOT from within this channel handler!
       // Call the xapiwrapper to save state.
       var wrapper = this._wrappers[channel._name];
-      wrapper.sendState(courseID, this._ACTOR, this._STATE_ID, null, state);
-      console.log('xapiChannelHandler: state saved');
+      console.log('xapiChannelHandler: state saving');
+      wrapper.sendState(courseID, this._ACTOR, this._STATE_ID, this._REGISTRATION, state, null, null, _.bind(function(response, body) {
+        console.log('xapiChannelHandler: state saved');
+      }, this));
     },
 
     loadState: function(channel, courseID) {
-      var state;
       var wrapper = this._wrappers[channel._name];
-      var fullState = wrapper.getState(courseID, this._ACTOR, this._STATE_ID);
-      if (!fullState || _.isArray(fullState)) {
-          fullState = {};
-      }
-      console.log('xapiChannelHandler: state loaded');
-      this.trigger('stateLoaded', fullState);
+      console.log('xapiChannelHandler: state retrieving');
+      // 5th param is 'since', we're not using it. 4th param sh/b this._REGISTRATION
+      wrapper.getState(courseID, this._ACTOR, this._STATE_ID, this._REGISTRATION, null, _.bind(function(response, result) {
+        if (!result || _.isArray(result) || result.error) {
+          state = {};
+        } else {
+          state = result;
+        }
+        console.log('xapiChannelHandler: state retrieved');
+        this.trigger('stateLoaded', state);
+      }, this));
     },
 
 
