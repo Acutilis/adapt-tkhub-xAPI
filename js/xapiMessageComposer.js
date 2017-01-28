@@ -50,7 +50,8 @@ define([ 'coreJS/adapt',
     /*****  Specific composing functions   *****/
     /*******************************************/
 
-    Adapt_adapt_start: function (statement, args) {
+    //Adapt_adapt_start: function (statement, args) {
+    trackingHub_course_launch: function (statement, args) {
       // course started.
       statement.verb = this.xapiCustom.verbs.tcr_launched;
       statement.object = new ADL.XAPIStatement.Activity(trackingHub._config._courseID);
