@@ -97,6 +97,15 @@
                        "validators" : [],
                        "help" : "If set to 'true', this channel will be responsible for performing the launch sequence, which acquires the user identity (and possibly other info)."
                      },
+                     "_isCachedLocally" : {
+                       "type" : "boolean",
+                       "required" : true,
+                       "default" : false,
+                       "title" : "Cache state and statements locally",
+                       "inputType" : { "type" : "Boolean", "options" : [ false, true ] },
+                       "validators" : [],
+                       "help" : "If set to 'true', this channel will store state/statements locally before being sent to the LRS. In the event of connection problem the state will be available through the local cache and statements will be sent when the LRS is reachable."
+                     },
                      "_ignoreEvents" : {
                        "type" : "array",
                        "required" : false,

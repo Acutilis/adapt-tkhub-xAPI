@@ -2,8 +2,9 @@ define([
          'coreJS/adapt',
          'extensions/adapt-trackingHub/js/adapt-trackingHub',
          './xapiwrapper.min',
-         './xapiMessageComposer'
-], function(Adapt, trackingHub, xapiwrapper, msgComposer) {
+         './xapiMessageComposer',
+         './xapiChannelCache'
+], function(Adapt, trackingHub, xapiwrapper, msgComposer, ChannelCache) {
 
   var XapiChannelHandler = _.extend({
 
@@ -15,7 +16,7 @@ define([
     _REGISTRATION: null,
     _CTXT_ACTIVITIES: null, // necessary for adl-xapi-launch
 
-    _wrappers: {}, 
+    _wrappers: {},
 
     initialize: function() {
       console.log('Initializing xapiChannelHandler');
@@ -93,7 +94,7 @@ define([
         _.extend(conf, {"auth": "Basic "
             + toBase64(channel._userName + ":"
                      + channel._password) });
-        this._wrappers[channel._name] = new XAPIWrapper(conf, false);
+        this._wrappers[channel._name] = new ChannelCache(channel, new XAPIWrapper(conf, false));
     },
 
 
@@ -111,7 +112,7 @@ define([
       if (this.hasOwnProperty(launchFName)) {
           this[launchFName](channel, courseID);
       } else {
-          alert('Unknown launch method (' + channel._xapiLaunchMethod + ') specified in config for channel ' + channel._name + 
+          alert('Unknown launch method (' + channel._xapiLaunchMethod + ') specified in config for channel ' + channel._name +
                 '. Please fix it. Tracking will not work on this channel.');
       }
       this.trigger('launchSequenceFinished');
@@ -148,13 +149,13 @@ define([
         conf.withCredentials = true;
         var wrapper = new ADL.XAPIWrapper.constructor();
         wrapper.changeConfig(conf); //this applies the conf, It will read the parameters from the query string
-        this._wrappers[channel._name] = wrapper;
+        this._wrappers[channel._name] = new ChannelCache(channel, wrapper);
         console.log('xapiChannelHandler ' + channel._name + ': rustici launch sequence finished.');
     },
 
     launch_adlxapi: function(channel, courseID) {
         console.log('xapiChannelHandler ' + channel._name + ': starting launch sequence...');
-        // adl xapi launch functionality is provided by the xAPIwrapper, so we just do as 
+        // adl xapi launch functionality is provided by the xAPIwrapper, so we just do as
         // explained in https://github.com/adlnet/xAPIWrapper#xapi-launch-support
         var wrapper = null;
         var xch = this; // save reference to 'this', because I need it in the ADL.launch callback
@@ -164,7 +165,7 @@ define([
             console.log("--- content launched via xAPI Launch ---\n", wrapper.lrs, "\n", launchdata);
             xch._ACTOR = launchdata.actor;
             xch._CTXT_ACTIVITIES = launchdata.contextActivities;
-            xch._wrappers[channel._name] = xAPIWrapper;
+            xch._wrappers[channel._name] = new ChannelCache(channel, xAPIWrapper);
           } else {
             alert('ERROR: could not get xAPI data from xAPI-launch server!. Tracking on this channel will NOT work!');
           }
@@ -196,7 +197,7 @@ define([
         }
       }
 
-      // call specific event handling function for the event being processed, if it exists 
+      // call specific event handling function for the event being processed, if it exists
       // funcName = Adapt.trackingHub.getValidFunctionName(eventSourceName, eventName);
       // console.log('funcName = ' + funcName);
       // We only need to write event handling functions for the events that we care about
@@ -210,19 +211,10 @@ define([
     },
 
     deliverMsg: function(message, channel) {
-      if (channel._isFakeLRS) {
-        console.log('xapiChannelHandler ' + channel._name + ': FAKE POST of statement:', message);
-        return;
-      }
-
-      // USE THE WRAPPER of this channel to send the statement to the LRS
-      var wrapper = this._wrappers[channel._name];
-      console.log('xapiChannelHandler ' + channel._name + ': sending statement', message);
-      wrapper.sendStatement(message, _.bind(function() {
-        console.log('xapiChannelHandler ' + channel._name + ': sent statement', message);
+      this._wrappers[channel._name].sendStatement(message, _.bind(function(err) {
+          console.log('Statement sent/queued');
       }, this));
     },
-
 
     /*******************************************
     /*******  STATE MANAGEMENT FUNCTIONS *******
@@ -235,32 +227,30 @@ define([
       // If we want a channelHandler to be  capable of saving state, we have to implement this function.
       // IMPORTANT: this function is always called from trackingHub NOT from within this channel handler!
       // Call the xapiwrapper to save state.
-      var wrapper = this._wrappers[channel._name];
+
       console.log('xapiChannelHandler: state saving');
-      wrapper.sendState(courseID, this._ACTOR, this._STATE_ID, this._REGISTRATION, state, null, null, _.bind(function(response, body) {
+      this._wrappers[channel._name].setState(courseID, this._ACTOR, this._STATE_ID, this._REGISTRATION, state, _.bind(function(err) {
+        if (err) {
+          throw error;
+        }
+
         console.log('xapiChannelHandler: state saved');
       }, this));
     },
 
     loadState: function(channel, courseID) {
-      var wrapper = this._wrappers[channel._name];
       console.log('xapiChannelHandler: state retrieving');
-      // 5th param is 'since', we're not using it. 4th param sh/b this._REGISTRATION
-      wrapper.getState(courseID, this._ACTOR, this._STATE_ID, this._REGISTRATION, null, _.bind(function(response, result) {
-        if (!result || _.isArray(result) || result.error) {
-          state = {};
-        } else {
-          state = result;
+      this._wrappers[channel._name].getState(courseID, this._ACTOR, this._STATE_ID, this._REGISTRATION, _.bind(function(err, state) {
+        if (err) {
+          throw error;
         }
+
         console.log('xapiChannelHandler: state retrieved');
         this.trigger('stateLoaded', state);
       }, this));
     },
 
-
     /*******  END STATE MANAGEMENT FUNCTIONS ********/
-
-
 
     /*******************************************
     /*** SPECIFIC EVENT PROCESSING FUNCTIONS ***
@@ -269,8 +259,6 @@ define([
     // no need to do any specific event processing in this channel handler.
 
     /*******  END SPECIFIC EVENT PROCESSING FUNCTIONS ********/
-
-
   }, Backbone.Events);
 
   XapiChannelHandler.initialize();
