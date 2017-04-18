@@ -89,11 +89,11 @@ define([
         // but the rest of the xapi parameters are initialized form the channel config
         // that way, we can track to more than one LRS (but only one must be the launchManager)
         console.log('xapiChannelHandler applying config to channel ' + channel._name);
-        var conf = {};
+
+        var conf = { actor: this._ACTOR };
+        conf.strictCallbacks = true;
         _.extend(conf, {"endpoint": channel._endPoint} );
-        _.extend(conf, {"auth": "Basic "
-            + toBase64(channel._userName + ":"
-                     + channel._password) });
+        _.extend(conf, {"auth": "Basic " + toBase64(channel._userName + ":" + channel._password) });
         this._wrappers[channel._name] = new ChannelCache(channel, new XAPIWrapper(conf, false));
     },
 
@@ -143,13 +143,9 @@ define([
         this._LANG = qs['Accept-Language'];
         if (qs.activity_id) {
           // override the activity id if one was passed in the query string.
-          trackingHub._config._courseID = qs.activity_id;          }
+          trackingHub._config._courseID = qs.activity_id;
+        }
         this._REGISTRATION = qs.registration;
-        var conf = { actor: this._ACTOR };
-        conf.withCredentials = true;
-        var wrapper = new ADL.XAPIWrapper.constructor();
-        wrapper.changeConfig(conf); //this applies the conf, It will read the parameters from the query string
-        this._wrappers[channel._name] = new ChannelCache(channel, wrapper);
         console.log('xapiChannelHandler ' + channel._name + ': rustici launch sequence finished.');
     },
 
@@ -165,11 +161,10 @@ define([
             console.log("--- content launched via xAPI Launch ---\n", wrapper.lrs, "\n", launchdata);
             xch._ACTOR = launchdata.actor;
             xch._CTXT_ACTIVITIES = launchdata.contextActivities;
-            xch._wrappers[channel._name] = new ChannelCache(channel, xAPIWrapper);
           } else {
             alert('ERROR: could not get xAPI data from xAPI-launch server!. Tracking on this channel will NOT work!');
           }
-        }, true);
+        }, true, true);
     },
 
     launch_hardcoded: function(channel, courseID) {
@@ -212,7 +207,11 @@ define([
 
     deliverMsg: function(message, channel) {
       this._wrappers[channel._name].sendStatement(message, _.bind(function(err) {
-          console.log('Statement sent/queued');
+        if (err) {
+          throw err;
+        }
+
+        console.log('Statement sent/queued');
       }, this));
     },
 
@@ -231,7 +230,7 @@ define([
       console.log('xapiChannelHandler: state saving');
       this._wrappers[channel._name].setState(courseID, this._ACTOR, this._STATE_ID, this._REGISTRATION, state, _.bind(function(err) {
         if (err) {
-          throw error;
+          throw err;
         }
 
         console.log('xapiChannelHandler: state saved');
@@ -242,7 +241,7 @@ define([
       console.log('xapiChannelHandler: state retrieving');
       this._wrappers[channel._name].getState(courseID, this._ACTOR, this._STATE_ID, this._REGISTRATION, _.bind(function(err, state) {
         if (err) {
-          throw error;
+          throw err;
         }
 
         console.log('xapiChannelHandler: state retrieved');

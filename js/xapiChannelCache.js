@@ -11,9 +11,21 @@ define([], function() {
   var Cache = function(channel, wrapper) {
     this.channel = channel;
     this.wrapper = wrapper;
+
     this.storage = window.localStorage || null;
     if (!this.storage) {
       return;
+    }
+
+    // Check if we are changing actors, is so we need to clear cached data
+    var actor = this.getCachedActor();
+    var wrapperActor = this.getWrapperActor();
+    if (!actor || !wrapperActor || actor !== wrapperActor) {
+      // TODO remove
+      console.log("user switch - clearing cache");
+      this.clearCachedState();
+      this.clearCachedStatements();
+      this.setCachedActor(wrapperActor);
     }
   };
 
@@ -32,14 +44,37 @@ define([], function() {
 
       return true;
     },
+    getCachedActor: function() {
+      var actor = this.storage.getItem('xapi_actor');
+      return actor;
+    },
+    setCachedActor: function(actor) {
+      return this.storage.setItem('xapi_actor', actor);
+    },
+    getWrapperActor: function() {
+      var actor = this.wrapper.lrs.actor;
+      try {
+        var parsed = JSON.parse(actor);
+        actor = parsed.mbox || null;
+      } catch(e) {
+        actor = null;
+      }
+
+      return actor;
+    },
     setState: function(courseID, actor, stateId, registration, state, callback) {
       // Update states generation date
       state.generated = (new Date()).toISOString();
+      state.actor = actor;
 
       this.setCachedState(state);
 
       // Push data to remote LRS
-      this.wrapper.sendState(courseID, actor, stateId, registration, state, null, null, _.bind(function(res, result) {        
+      this.wrapper.sendState(courseID, actor, stateId, registration, state, null, null, _.bind(function(err, res, result) {
+        if (err) {
+          return callback(err);
+        }
+
         if (res.readyState === 4 && (res.status === 200 || res.status === 204)) {
           return callback(null, true);
         }
@@ -48,40 +83,34 @@ define([], function() {
       }, this));
     },
     getState: function(courseID, actor, stateId, registration, callback) {
-      console.log('xapiChannelCache ' + this.channel._name + ' getting state');
-      // 5th param is 'since', we're not using it. 4th param sh/b this._REGISTRATION
-      this.wrapper.getState(courseID, actor, stateId, registration, null, _.bind(function(res, result) {
-        // TODO Check if request failed. We may not beable to check errors until an issue with the xapi wrapper
-        // is addressed https://github.com/adlnet/xAPIWrapper/issues/80
-        
+      this.wrapper.getState(courseID, actor, stateId, registration, null, _.bind(function(err, res, result) {
+        if (err) {
+          return callback(err);
+        }
+
         var cache = this.getCachedState();
 
-        // If no data from server or error, use cache (or empty object returned by cache)
-        if (!result || _.isArray(result) || result.error) {
-          console.log('xapiChannelCache ' + this.channel._name + ' error getting LRS state, using cached/empty state');
+        // If error, no data from server; use cache (or empty object returned by cache)
+        if (err || !result || _.isArray(result) || result.error) {
           return callback(null, cache);
         }
 
         // If result is old (no generation date) use cache if generation date present
         if (!result.generated && cache.generated) {
-          console.log('xapiChannelCache ' + this.channel._name + ' cached state appears to be newer, using cached');
           return callback(null, cache);
         }
-        
+
         // If cached value is newer then server value use the cached value
         if (Date.parse(result.generated) < Date.parse(cache.generated)) {
-          console.log('xapiChannelCache ' + this.channel._name + ' cache state is newer/same, using cached');
           return callback(null, cache);
         }
 
         // Use server state
-        console.log('xapiChannelCache ' + this.channel._name + ' is using LRS state');
         return callback(null, result);
       }, this));
     },
     sendStatement: function(statement, callback) {
       if (this.channel._isFakeLRS) {
-        console.log('xapiChannelCache ' + this.channel._name + ': FAKE POST of statement:', statement);
         return callback();
       }
 
@@ -90,39 +119,34 @@ define([], function() {
     },
     sendStatements: function(callback) {
       if (this.channel._isFakeLRS) {
-        return callback();
+        return callback(null, 0);
       }
-      
+
       // Avoid sending duplicates due to race condition
       // If a request is already in flight do not start another one
       if (this.pending >= 1) {
-        console.log('xapiChannelCache ' + this.channel._name + ' already sending');
         return callback();
       }
 
       // Track how many inflight requests. We only allow one inflight request at a time
       // to deal with race conditions in the statement queue handling
       this.pending++;
-      
+
       var statements = this.getCachedStatements();
-      console.log('xapiChannelCache ' + this.channel._name + ': sending statements', statements);
 
       // TODO max statements to send in one request should be configurable
       var payload = statements.slice(0, 25);
 
-      this.wrapper.sendStatement(payload, _.bind(function(res, result) {
-        // Check if request failed. We may not beable to check errors until an issue with the xapi wrapper
-        // is addressed https://github.com/adlnet/xAPIWrapper/issues/80
-        if (res.status >= 400) {
-          console.log('xapiChannelCache ' + this.channel._name + ': failed to send statements', res.status);
+      this.wrapper.sendStatement(payload, _.bind(function(err, res, result) {
+        if (err) {
+          // Check if request failed. We may not beable to check errors until an issue with the xapi wrapper
           this.setupRetry();
+
           return callback(new Error('Error sending statement(s)'));
         }
 
         // We had a successful requst, clear any pending request
         this.clearRetry();
-        
-        console.log('xapiChannelCache ' + this.channel._name + ': sent ' + payload.length + ' statement');
 
         // Re-get the cache as statements may have been added
         var cached = this.getCachedStatements();
@@ -137,24 +161,25 @@ define([], function() {
 
         // If there are still statements to send, do it
         if (remaining.length > 0) {
-          console.log('xapiChannelCache' + this.channel._name + ' queue contains ' + remaining.length + ' statements');
-          return this.sendStatements(callback);          
+          return this.sendStatements(callback);
         }
 
-        console.log('xapiChannelCache ' + this.channel._name + ' queue is empty');
-        
         return callback();
       }, this));
     },
     setupRetry: function() {
       // Retry already in progress, clear it and delay more
       this.clearRetry();
-          
+
       // Wait a while and try again
       this.retryTimer = setTimeout(_.bind(function() {
         // Clear any existing retrys
         this.clearRetry();
-        this.sendStatements();
+        this.sendStatements(function(err) {
+          if (err) {
+            // TODO log error
+          }
+        });
       }, this), 30000); // 30 seconds
     },
     clearRetry: function() {
@@ -175,19 +200,23 @@ define([], function() {
       }
 
       try {
-        return JSON.parse(state);
+        state = JSON.parse(state);
       } catch(e) {
-        console.log('xapiChannelCache' + this.channel._name + ' error getting state cache ' + e.message);
+        // TODO add logging
+        return {};
       }
 
-      return {};;
+      return state;
     },
     setCachedState: function(state) {
       if (!this.isCacheEnabled()) {
         return;
-      }      
-      
+      }
+
       this.storage.setItem('xapi_state', JSON.stringify(state));
+    },
+    clearCachedState: function() {
+      this.storage.removeItem('xapi_state');
     },
     addStatementToCache: function(statement) {
       var statements = this.getCachedStatements();
@@ -214,13 +243,11 @@ define([], function() {
       try {
         statements = JSON.parse(statements);
       } catch(e) {
-        console.log('Error parsing cached xAPI statements', e, statements);
         return [];
       }
 
       // If retieved statements are not valid return empty array
       if (!this.isValidStatementsArray(statements)) {
-        cosole.log('Invalid statement data', statements);
         return [];
       }
 
@@ -237,6 +264,9 @@ define([], function() {
       };
 
       this.storage.setItem('xapi_statements', JSON.stringify(statements));
+    },
+    clearCachedStatements: function() {
+      this.storage.removeItem('xapi_statements');
     },
     isValidStatementsArray: function(statements) {
       return (statements && statements instanceof Array);
