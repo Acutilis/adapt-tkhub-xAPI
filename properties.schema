@@ -106,6 +106,15 @@
                        "validators" : [],
                        "help" : "If set to 'true', this channel will store state/statements locally before being sent to the LRS. In the event of connection problem the state will be available through the local cache and statements will be sent when the LRS is reachable."
                      },
+                     "_isMobile" : {
+                       "type" : "boolean",
+                       "required" : true,
+                       "default" : false,
+                       "title" : "Try to work despite lack of internet connection",
+                       "inputType" : { "type" : "Boolean", "options" : [ false, true ] },
+                       "validators" : [],
+                       "help" : "If set to 'true', this channel will attempt to work despite internet connectivity issues. If unable to retieve remote state locally cached state or an empty default state will be used."
+                     },
                      "_ignoreEvents" : {
                        "type" : "array",
                        "required" : false,

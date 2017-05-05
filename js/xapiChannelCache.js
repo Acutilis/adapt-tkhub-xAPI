@@ -21,8 +21,6 @@ define([], function() {
     var actor = this.getCachedActor();
     var wrapperActor = this.getWrapperActor();
     if (!actor || !wrapperActor || actor !== wrapperActor) {
-      // TODO remove
-      console.log("user switch - clearing cache");
       this.clearCachedState();
       this.clearCachedStatements();
       this.setCachedActor(wrapperActor);
@@ -40,9 +38,10 @@ define([], function() {
         return false;
       }
 
-      // TODO check if caching is enabled on the channel
-
-      return true;
+      return this.channel._isCachedLocally || false;
+    },
+    isMobile: function() {
+      return this.channel._isMobile || false;
     },
     getCachedActor: function() {
       var actor = this.storage.getItem('xapi_actor');
@@ -72,6 +71,11 @@ define([], function() {
       // Push data to remote LRS
       this.wrapper.sendState(courseID, actor, stateId, registration, state, null, null, _.bind(function(err, res, result) {
         if (err) {
+          // Mobile ignores network errors
+          if (this.isMobile()) {
+            return callback(null, false);
+          }
+
           return callback(err);
         }
 
@@ -84,7 +88,7 @@ define([], function() {
     },
     getState: function(courseID, actor, stateId, registration, callback) {
       this.wrapper.getState(courseID, actor, stateId, registration, null, _.bind(function(err, res, result) {
-        if (err) {
+        if (err && !this.isMobile()) {
           return callback(err);
         }
 
@@ -138,6 +142,9 @@ define([], function() {
       var payload = statements.slice(0, 25);
 
       this.wrapper.sendStatement(payload, _.bind(function(err, res, result) {
+        // We are done with the queue, we can let another request happen
+        this.pending--;
+
         if (err) {
           // Check if request failed. We may not beable to check errors until an issue with the xapi wrapper
           this.setupRetry();
@@ -156,9 +163,6 @@ define([], function() {
         // If any statements were not send, prepare to resend
         this.setCachedStatements(remaining);
 
-        // We are done with the queue, we can let another request happen
-        this.pending--;
-
         // If there are still statements to send, do it
         if (remaining.length > 0) {
           return this.sendStatements(callback);
@@ -175,11 +179,11 @@ define([], function() {
       this.retryTimer = setTimeout(_.bind(function() {
         // Clear any existing retrys
         this.clearRetry();
-        this.sendStatements(function(err) {
+        this.sendStatements(_.bind(function(err) {
           if (err) {
-            // TODO log error
+            this.setupRetry();
           }
-        });
+        }, this));
       }, this), 30000); // 30 seconds
     },
     clearRetry: function() {
