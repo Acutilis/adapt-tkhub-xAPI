@@ -113,7 +113,7 @@
                        "title" : "Try to work despite lack of internet connection",
                        "inputType" : { "type" : "Boolean", "options" : [ false, true ] },
                        "validators" : [],
-                       "help" : "If set to 'true', this channel will attempt to work despite internet connectivity issues. If unable to retieve remote state locally cached state or an empty default state will be used."
+                       "help" : "If set to 'true', this channel will attempt to work despite internet connectivity issues. If unable to retrieve remote state locally cached state or an empty default state will be used."
                      },
                      "_ignoreEvents" : {
                        "type" : "array",
