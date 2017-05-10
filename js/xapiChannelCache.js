@@ -43,6 +43,9 @@ define([], function() {
     isMobile: function() {
       return this.channel._isMobile || false;
     },
+    isAlreadySending: function() {
+      return this.pending > 0;
+    },
     getCachedActor: function() {
       var actor = this.storage.getItem('xapi_actor');
       return actor;
@@ -123,12 +126,14 @@ define([], function() {
     },
     sendStatements: function(callback) {
       if (this.channel._isFakeLRS) {
+        this.trigger('sendingComplete');
         return callback(null, 0);
       }
 
       // Avoid sending duplicates due to race condition
       // If a request is already in flight do not start another one
       if (this.pending >= 1) {
+        // Don't emit sending complete as we are still in the middle of sending
         return callback();
       }
 
@@ -149,7 +154,9 @@ define([], function() {
           // Check if request failed. We may not beable to check errors until an issue with the xapi wrapper
           this.setupRetry();
 
-          return callback(new Error('Error sending statement(s)'));
+          var error = new Error('Error sending statements - ' + err.message);
+          this.trigger('sendingComplete', error);
+          return callback(error);
         }
 
         // We had a successful requst, clear any pending request
@@ -168,6 +175,7 @@ define([], function() {
           return this.sendStatements(callback);
         }
 
+        this.trigger('sendingComplete');
         return callback();
       }, this));
     },
@@ -277,5 +285,7 @@ define([], function() {
     }
   };
 
+  _.extend(Cache.prototype, Backbone.Events);
+  
   return Cache;
 })

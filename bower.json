@@ -7,8 +7,9 @@
   "repository": "git://github.com/Acutilis/adapt-tkhub-xAPI.git",
   "displayName" : "tkhub xAPI",
   "extension" : "tkhub-xAPI",
+  "component": "xAPISync",
   "description": "An extension for trackingHub that implements xAPI tracking.",
-  "main": "/js/xapiChannelHandler.js",
+  "main": "/js/xapiSyncView.js",
   "authors": [
           "jPablo Caballero <pablo@acutilis.com>"
   ],

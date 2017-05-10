@@ -3,8 +3,9 @@ define([
          'extensions/adapt-trackingHub/js/adapt-trackingHub',
          './xapiwrapper.min',
          './xapiMessageComposer',
-         './xapiChannelCache'
-], function(Adapt, trackingHub, xapiwrapper, msgComposer, ChannelCache) {
+         './xapiChannelCache',
+         '../libraries/async.min.js',
+], function(Adapt, trackingHub, xapiwrapper, msgComposer, ChannelCache, async) {
 
   var XapiChannelHandler = _.extend({
 
@@ -248,6 +249,38 @@ define([
         this.trigger('stateLoaded', state);
       }, this));
     },
+
+    hasPendingStatements: function() {
+      var hasStatements = false;
+      _.each(this._wrappers, function(wrapper) {
+        if (wrapper.hasStatementsToSend()) {
+          hasStatements = true;
+        }
+      });
+
+      return hasStatements;
+    },
+      
+    sendPendingStatements: function(callback) {
+      async.forEachSeries(this._wrappers, function(wrapper, callback) {
+        // It's possible that we are alrady sending the data
+        if (wrapper.isAlreadySending()) {
+          wrapper.once('sendingComplete', function(event) {
+            console.log('sendingComplete', event);
+            return callback();
+          });
+          return;
+        }
+        
+        wrapper.sendStatements(callback);
+      }, function(err, result) {
+        if (err) {
+          return callback(err);
+        }
+
+        return callback();
+      });
+    }
 
     /*******  END STATE MANAGEMENT FUNCTIONS ********/
 

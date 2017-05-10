@@ -4,6 +4,14 @@
   "id": "http://jsonschema.net",
   "required":false,
   "globals": {
+    "ariaRegion": {
+      "type": "string",
+      "required": true,
+      "default": "This component requires learnings to sync there xAPI data before proceeding.",
+      "inputType": "Text",
+      "validators": [],
+      "translatable": true
+    }
   },
   "properties" : {
     "pluginLocations" : {
