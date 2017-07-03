@@ -12,7 +12,7 @@ define([ 'coreJS/adapt',
       this.setCustomVerbs();
     },
 
-    compose: function (eventSourceName, eventName, args) {
+    compose: function (eventSourceName, eventName, args, channel) {
       var statementParts;
       var statement;
       var timestamp = new Date(Date.now()).toISOString();
@@ -21,7 +21,12 @@ define([ 'coreJS/adapt',
       if (this.hasOwnProperty(funcName)) {
         statement = new ADL.XAPIStatement();
         statement.timestamp = timestamp;
-        statement.generateId();
+
+        // If channel not defined or if _generateIds is true/undefined, then generate ids locally
+        if (!channel || (channel._generateIds || _.isUndefined(channel._generateIds))) {
+          statement.generateId();
+        }
+
         // Call the specific composing function for this event
         // it will add things to the statement.
         this[funcName](statement,args);

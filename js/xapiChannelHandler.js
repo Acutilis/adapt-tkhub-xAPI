@@ -184,7 +184,7 @@ define([
       // msgComposer is a reference to the message composer that this particular channel handler uses.
       var isEventIgnored = _.contains(channel._ignoreEvents,eventName);
       if ( !isEventIgnored && channel._reportsEvents ) {
-        message = msgComposer.compose(eventSourceName, eventName, args)
+        message = msgComposer.compose(eventSourceName, eventName, args, channel)
         if (message) {
           // in this case, the message is an INCOMPLETE xAPI statement, it's missing the Actor.
           // We add it here

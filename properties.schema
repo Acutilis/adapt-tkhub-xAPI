@@ -216,6 +216,15 @@
                        "required" : false,
                        "validators" : [],
                        "help" : "The password to authenticate on the backend of this channel"
+                     },
+                     "_generateIds" : {
+                       "type" : "boolean",
+                       "inputType" : { "type" : "Boolean", "options" : [ true, false ] },
+                       "title" : "Generate Statement Ids",
+                       "default" : true,
+                       "required" : false,
+                       "validators" : [],
+                       "help" : "Controls if statement ids are generated locally (true) or by the LRS (false)"
                      }
                    }
                  }
