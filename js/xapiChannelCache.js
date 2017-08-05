@@ -121,9 +121,22 @@ define([], function() {
         return callback();
       }
 
-      this.addStatementToCache(statement);
-      this.sendStatements(callback);
+      if (!this.isCacheEnabled()) {
+        this.wrapper.sendStatement(statement,  _.bind(function(err, res, result) {
+          if (err) {
+            var error = new Error('Error sending statements - ' + err.message);
+            this.trigger('sendingComplete', error);
+            return callback(error);
+          }
+          this.trigger('sendingComplete');
+          return callback();
+        }, this));
+      } else {
+        this.addStatementToCache(statement);
+        this.sendStatements(callback);
+      }
     },
+
     sendStatements: function(callback) {
       if (this.channel._isFakeLRS) {
         this.trigger('sendingComplete');
@@ -137,16 +150,20 @@ define([], function() {
         return callback();
       }
 
-      // Track how many inflight requests. We only allow one inflight request at a time
-      // to deal with race conditions in the statement queue handling
-      this.pending++;
-
       var statements = this.getCachedStatements();
 
       // TODO max statements to send in one request should be configurable
       var payload = statements.slice(0, 25);
 
-      this.wrapper.sendStatements(payload, _.bind(function(err, res, result) {
+      if (_.isEmpty(payload)) {
+        return callback();
+      }
+      //
+      // Track how many inflight requests. We only allow one inflight request at a time
+      // to deal with race conditions in the statement queue handling
+      this.pending++;
+
+      var sendStatementsCallback = _.bind(function(err, res, result) {
         // We are done with the queue, we can let another request happen
         this.pending--;
 
@@ -177,8 +194,15 @@ define([], function() {
 
         this.trigger('sendingComplete');
         return callback();
-      }, this));
+      }, this);
+
+      if (payload.length == 1) {
+          this.wrapper.sendStatement(payload[0], sendStatementsCallback );
+      } else {
+          this.wrapper.sendStatements(payload, sendStatementsCallback );
+      }
     },
+
     setupRetry: function() {
       // Retry already in progress, clear it and delay more
       this.clearRetry();
