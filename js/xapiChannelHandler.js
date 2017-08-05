@@ -13,9 +13,12 @@ define([
     _STATE_ID: 'ACTIVITY_STATE',
     _OWNSTATEKEY: 'xapi',
     _OWNSTATE: null,
+
+    // data that might be set by the launch sequence. 
     _ACTOR: null,
     _REGISTRATION: null,
     _CTXT_ACTIVITIES: null, // necessary for adl-xapi-launch
+    // END data that might be set by the launch sequence. 
 
     _wrappers: {},
 
@@ -86,16 +89,20 @@ define([
     },
 
     applyChannelConfig: function(channel) {
-        // the actor identity is set from the channel that is the launchManager
-        // but the rest of the xapi parameters are initialized form the channel config
-        // that way, we can track to more than one LRS (but only one must be the launchManager)
+        // To create the xAPIWrapper we need a configuration object.
+        // This conf object provides some critical info, such as the endpoint, etc.
+        // This info might come from the launch sequence, the configuration file,
+        // or from both. Priority should be given to info coming from the launch sequence.
         console.log('xapiChannelHandler applying config to channel ' + channel._name);
-
-        var conf = { actor: this._ACTOR, registration: this._REGISTRATION };
-        conf.strictCallbacks = true;
-        _.extend(conf, {"endpoint": channel._endPoint} );
-        _.extend(conf, {"auth": "Basic " + toBase64(channel._userName + ":" + channel._password) });
-        this._wrappers[channel._name] = new ChannelCache(channel, new XAPIWrapper(conf, false));
+        if (channel._PREBUILTWRAPPER) {  // will be true if adlxapi launch
+          this._wrappers[channel._name] = new ChannelCache(channel, channel._PREBUILTWRAPPER);
+        } else {
+          var conf = { actor: this._ACTOR, registration: this._REGISTRATION };
+          conf.strictCallbacks = true;
+          _.extend(conf, {"endpoint": channel._endPoint} );
+          _.extend(conf, {"auth": "Basic " + toBase64(channel._userName + ":" + channel._password) });
+          this._wrappers[channel._name] = new ChannelCache(channel, new XAPIWrapper(conf, false));
+        }
     },
 
 
@@ -116,7 +123,7 @@ define([
           alert('Unknown launch method (' + channel._xapiLaunchMethod + ') specified in config for channel ' + channel._name +
                 '. Please fix it. Tracking will not work on this channel.');
       }
-      this.trigger('launchSequenceFinished');
+      // this.trigger('launchSequenceFinished');
     },
 
     launch_spoor: function(channel, courseID) {
@@ -128,7 +135,9 @@ define([
                            name: studentID
         }
         Adapt.trackingHub.userInfo.account =  accountObj;
+        // in the spoor launch, the channel._endPoint is set through the configuration file, so no need to set it here
         this._ACTOR = new ADL.XAPIStatement.Agent(accountObj);
+        this.trigger('launchSequenceFinished');
     },
 
     launch_rustici: function(channel, courseID) {
@@ -140,6 +149,8 @@ define([
         var actor = JSON.parse(qs.actor);
         Adapt.trackingHub.userInfo.mbox =  actor.mbox;
         Adapt.trackingHub.userInfo.fullName =  actor.name;
+        // in the rustici launch, the channel._endPoint is taken from  the query param
+        channel._endPoint = qs['endpoint'] 
         this._ACTOR = new ADL.XAPIStatement.Agent(actor.mbox, actor.name);
         this._LANG = qs['Accept-Language'];
         if (qs.activity_id) {
@@ -148,22 +159,30 @@ define([
         }
         this._REGISTRATION = qs.registration;
         console.log('xapiChannelHandler ' + channel._name + ': rustici launch sequence finished.');
+        this.trigger('launchSequenceFinished');
     },
 
     launch_adlxapi: function(channel, courseID) {
         console.log('xapiChannelHandler ' + channel._name + ': starting launch sequence...');
         // adl xapi launch functionality is provided by the xAPIwrapper, so we just do as
         // explained in https://github.com/adlnet/xAPIWrapper#xapi-launch-support
-        var wrapper = null;
         var xch = this; // save reference to 'this', because I need it in the ADL.launch callback
         ADL.launch(function(err, launchdata, xAPIWrapper) {
           if (!err) {
-            wrapper = xAPIWrapper;
-            console.log("--- content launched via xAPI Launch ---\n", wrapper.lrs, "\n", launchdata);
+            // console.log("--- content launched via xAPI Launch ---\n", wrapper.lrs, "\n", launchdata);
+            // the 'launch' function provided by xAPIWrapper already returns a pre-made xAPIWrapper, and
+            // we MUST use that (it takes care of the cookie etc.)
+            channel._PREBUILTWRAPPER = xAPIWrapper;
+            // But other parts of the code rely on individual pieces of data (such as _ACTOR) even though
+            // they exist in the pre-built wrapper, so we set those here
+            channel._endPoint = launchdata.endpoint 
             xch._ACTOR = launchdata.actor;
             xch._CTXT_ACTIVITIES = launchdata.contextActivities;
+            console.log('xapiChannelHandler ' + channel._name + ': adlxapi (xapi-launch) launch sequence finished.');
+            xch.trigger('launchSequenceFinished');
           } else {
             alert('ERROR: could not get xAPI data from xAPI-launch server!. Tracking on this channel will NOT work!');
+            //xch.trigger('launchSequenceFinished');
           }
         }, true, true);
     },
@@ -172,8 +191,10 @@ define([
         console.log('xapiChannelHandler ' + channel._name + ': starting hardcoded launch sequence...');
         Adapt.trackingHub.userInfo.mbox =  channel._mbox;
         Adapt.trackingHub.userInfo.fullName =  channel._fullName;
+        // in the harcoded launch, the channel._endPoint is taken from the config file, so no need to set it here.
         this._ACTOR = new ADL.XAPIStatement.Agent(Adapt.trackingHub.userInfo.mbox, Adapt.trackingHub.userInfo.fullName);
         console.log('xapiChannelHandler ' + channel._name + ': hardcoded launch sequence finished.');
+        this.trigger('launchSequenceFinished');
     },
 
     /*******  END LAUNCH SEQUENCE FUNCTIONS *******/
