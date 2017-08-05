@@ -91,7 +91,7 @@ define([
         // that way, we can track to more than one LRS (but only one must be the launchManager)
         console.log('xapiChannelHandler applying config to channel ' + channel._name);
 
-        var conf = { actor: this._ACTOR };
+        var conf = { actor: this._ACTOR, registration: this._REGISTRATION };
         conf.strictCallbacks = true;
         _.extend(conf, {"endpoint": channel._endPoint} );
         _.extend(conf, {"auth": "Basic " + toBase64(channel._userName + ":" + channel._password) });
@@ -184,7 +184,7 @@ define([
       // msgComposer is a reference to the message composer that this particular channel handler uses.
       var isEventIgnored = _.contains(channel._ignoreEvents,eventName);
       if ( !isEventIgnored && channel._reportsEvents ) {
-        message = msgComposer.compose(eventSourceName, eventName, args, channel)
+        var message = msgComposer.compose(eventSourceName, eventName, args, channel)
         if (message) {
           // in this case, the message is an INCOMPLETE xAPI statement, it's missing the Actor.
           // We add it here

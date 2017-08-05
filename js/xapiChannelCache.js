@@ -146,7 +146,7 @@ define([], function() {
       // TODO max statements to send in one request should be configurable
       var payload = statements.slice(0, 25);
 
-      this.wrapper.sendStatement(payload, _.bind(function(err, res, result) {
+      this.wrapper.sendStatements(payload, _.bind(function(err, res, result) {
         // We are done with the queue, we can let another request happen
         this.pending--;
 
@@ -232,7 +232,7 @@ define([], function() {
     },
     addStatementToCache: function(statement) {
       var statements = this.getCachedStatements();
-      statements.push(message);
+      statements.push(statement);
       this.setCachedStatements(statements);
     },
     hasStatementsToSend: function() {
