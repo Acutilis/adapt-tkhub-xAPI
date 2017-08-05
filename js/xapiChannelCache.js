@@ -8,9 +8,10 @@ define([], function() {
    * held in an array until they are sent, at which point they are
    * remove from the array and the cache is updated.
    */
-  var Cache = function(channel, wrapper) {
+  var Cache = function(channel, wrapper, chRef) {
     this.channel = channel;
     this.wrapper = wrapper;
+    this.chRef = chRef;  //reference to the xapiChannelHandler.
 
     this.storage = window.localStorage || null;
     if (!this.storage) {
@@ -224,12 +225,18 @@ define([], function() {
         this.retryTimer = null;
       }
     },
+
+    getStateKey: function() {
+      var reg = this.chRef._REGISTRATION;
+      return  reg ? 'xapi_state_' + reg : 'xapi_state'; 
+    },
+
     getCachedState: function() {
       if (!this.isCacheEnabled()) {
         return {};
       }
 
-      var state = this.storage.getItem('xapi_state');
+      var state = this.storage.getItem(this.getStateKey());
       // If null/falsey then no data, return empty state object
       if (!state) {
         return {};
@@ -249,10 +256,10 @@ define([], function() {
         return;
       }
 
-      this.storage.setItem('xapi_state', JSON.stringify(state));
+      this.storage.setItem(this.getStateKey(), JSON.stringify(state));
     },
     clearCachedState: function() {
-      this.storage.removeItem('xapi_state');
+      this.storage.removeItem(this.getStateKey());
     },
     addStatementToCache: function(statement) {
       var statements = this.getCachedStatements();

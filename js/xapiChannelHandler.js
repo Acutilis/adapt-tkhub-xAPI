@@ -95,13 +95,13 @@ define([
         // or from both. Priority should be given to info coming from the launch sequence.
         console.log('xapiChannelHandler applying config to channel ' + channel._name);
         if (channel._PREBUILTWRAPPER) {  // will be true if adlxapi launch
-          this._wrappers[channel._name] = new ChannelCache(channel, channel._PREBUILTWRAPPER);
+          this._wrappers[channel._name] = new ChannelCache(channel, channel._PREBUILTWRAPPER, this);
         } else {
           var conf = { actor: this._ACTOR, registration: this._REGISTRATION };
           conf.strictCallbacks = true;
           _.extend(conf, {"endpoint": channel._endPoint} );
           _.extend(conf, {"auth": "Basic " + toBase64(channel._userName + ":" + channel._password) });
-          this._wrappers[channel._name] = new ChannelCache(channel, new XAPIWrapper(conf, false));
+          this._wrappers[channel._name] = new ChannelCache(channel, new XAPIWrapper(conf, false), this);
         }
     },
 
