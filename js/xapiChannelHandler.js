@@ -176,7 +176,8 @@ define([
             // But other parts of the code rely on individual pieces of data (such as _ACTOR) even though
             // they exist in the pre-built wrapper, so we set those here
             channel._endPoint = launchdata.endpoint 
-            xch._ACTOR = launchdata.actor;
+            xch._ACTOR = new ADL.XAPIStatement.Agent(launchdata.actor);
+            // xch._ACTOR = launchdata.actor;
             xch._CTXT_ACTIVITIES = launchdata.contextActivities;
             console.log('xapiChannelHandler ' + channel._name + ': adlxapi (xapi-launch) launch sequence finished.');
             xch.trigger('launchSequenceFinished');
@@ -209,7 +210,16 @@ define([
         if (message) {
           // in this case, the message is an INCOMPLETE xAPI statement, it's missing the Actor.
           // We add it here
-          message.actor = this._ACTOR;
+          if (! message.actor) {
+              message.actor = this._ACTOR;
+          }
+          message.context = message.context || {};
+/*          if (! message.context) {
+              msg.context = {}
+          } */
+          if (! message.context.contextActivities && this._CTXT_ACTIVITIES) {
+              message.context.contextActivities = this._CTXT_ACTIVITIES;
+          }
           this.deliverMsg(message, channel);
         }
       }

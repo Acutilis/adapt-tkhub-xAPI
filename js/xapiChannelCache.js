@@ -19,13 +19,18 @@ define([], function() {
     }
 
     // Check if we are changing actors, is so we need to clear cached data
-    var actor = this.getCachedActor();
-    var wrapperActor = this.getWrapperActor();
-    if (!actor || !wrapperActor || actor !== wrapperActor) {
+    // to compare, we must use the same types of objects (Agent)
+    var wrapperAgent = this.getWrapperActor();
+    var cachedAgent = this.getCachedActor();
+
+    // for adlxapi launch method, wipe the cache.
+    if (! wrapperAgent || ! cachedAgent || !_.isEqual(wrapperAgent, cachedAgent)
+          || this.channel._xapiLaunchMethod == 'adlxapi') {
       this.clearCachedState();
       this.clearCachedStatements();
-      this.setCachedActor(wrapperActor);
+      this.setCachedActor(wrapperAgent);
     }
+
   };
 
   Cache.prototype = {
@@ -35,7 +40,8 @@ define([], function() {
     retryTimer: null,
     pending: 0,
     isCacheEnabled: function() {
-      if (!this.storage || !this.channel) {
+      // if  launch method is adlxapi, do not use cache at all
+      if (!this.storage || !this.channel || this.channel._xapiLaunchMethod == 'adlxapi') {
         return false;
       }
 
@@ -48,23 +54,36 @@ define([], function() {
       return this.pending > 0;
     },
     getCachedActor: function() {
-      var actor = this.storage.getItem('xapi_actor');
-      return actor;
+      var xa = this.storage.getItem('xapi_actor');
+      try {
+        var actor = JSON.parse(xa);
+      } catch(e) {
+        actor = null;
+      }
+      return new ADL.XAPIStatement.Agent(actor);
     },
     setCachedActor: function(actor) {
-      return this.storage.setItem('xapi_actor', actor);
+      var actorStr =  (typeof(actor) == "string") ? actor : JSON.stringify(actor);
+      return this.storage.setItem('xapi_actor', actorStr);
     },
+
     getWrapperActor: function() {
+      /*
       var actor = this.wrapper.lrs.actor;
+       ?? actor is already an object. Json.parse will always fail
+         also, can't restrict actor to 'mbox' type ones... there are other identifiers
+         for actors.
       try {
         var parsed = JSON.parse(actor);
         actor = parsed.mbox || null;
       } catch(e) {
         actor = null;
       }
-
       return actor;
+      */
+      return this.chRef._ACTOR;
     },
+
     setState: function(courseID, actor, stateId, registration, state, callback) {
       // Update states generation date
       state.generated = (new Date()).toISOString();
@@ -217,7 +236,7 @@ define([], function() {
             this.setupRetry();
           }
         }, this));
-      }, this), 30000); // 30 seconds
+      }, this), 30000); // 30 seconds TODO: make this configurable?
     },
     clearRetry: function() {
       if (this.retryTimer) {
