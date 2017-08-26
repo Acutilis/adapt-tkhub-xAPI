@@ -5,7 +5,8 @@ define([
          './xapiMessageComposer',
          './xapiChannelCache',
          '../libraries/async.min.js',
-], function(Adapt, trackingHub, xapiwrapper, msgComposer, ChannelCache, async) {
+         '../libraries/iri.js',
+], function(Adapt, trackingHub, xapiwrapper, msgComposer, ChannelCache, async, iri) {
 
   var XapiChannelHandler = _.extend({
 
@@ -93,8 +94,28 @@ define([
         // This conf object provides some critical info, such as the endpoint, etc.
         // This info might come from the launch sequence, the configuration file,
         // or from both. Priority should be given to info coming from the launch sequence.
+        // ALSO, some launch methods will create a 'statement template' that should be passed to 'messageComposer' 
+        // cmi5 is specially nitpicky about this...
+
         console.log('xapiChannelHandler applying config to channel ' + channel._name);
-        if (channel._PREBUILTWRAPPER) {  // will be true if adlxapi launch
+        // THIS condition should be based on the channel._xapiLaunchMethod
+        // HERE HERE change conditions, for acusplitap, adlxapi, and others.
+        if (channel._xapiLaunchMethod == 'acusplitap') {
+            // ["endpoint","auth","actor","registration","activity_id"
+          var conf = { actor: this._ACTOR, registration: channel._LaunchData.registration };
+          conf.strictCallbacks = true;
+          var l = document.createElement("a");
+          l.href = '/xAPI';
+          // now l.href contains the complete url (http://whatever.com/xAPI/)
+          _.extend(conf, {"endpoint": l.href} );
+          _.extend(conf, {"auth": "Basic " + toBase64('nouser:nopassword') });
+          this._wrappers[channel._name] = new ChannelCache(channel, new XAPIWrapper(conf, false), this);
+          // now the statement templates
+          // msgComposer._CONTEXT_TEMPLATE = channel._LaunchData;
+          msgComposer.setContextTemplate(channel._LaunchData.contextTemplate);
+
+        } else if (channel._xapiLaunchMethod == 'adlxapi')  {
+          // if (channel._PREBUILTWRAPPER) {  // will be true if adlxapi launch
           this._wrappers[channel._name] = new ChannelCache(channel, channel._PREBUILTWRAPPER, this);
         } else {
           var conf = { actor: this._ACTOR, registration: this._REGISTRATION };
@@ -124,6 +145,113 @@ define([
                 '. Please fix it. Tracking will not work on this channel.');
       }
       // this.trigger('launchSequenceFinished');
+    },
+
+    launch_acusplitap: function(channel, courseID) {
+        console.log('xapiChannelHandler ' + channel._name + ': starting acusplitap launch sequence...');
+        // actor is nobody@noplace.no
+        this._ACTOR = new ADL.XAPIStatement.Agent('mailto:nobody@noplace.no', 'Nobody No');
+        var qs = trackingHub.queryString();
+        var LDep = JSON.parse(qs.LDep);
+        if (! LDep) {
+            alert('Launch method set to acu-splitAP but no LDep query parameter provider. Tracking on this channel will not work.');
+            return;
+        }
+        // LRS endpoint is always /xAPI
+        // that = this;
+        $.ajax({
+            context: this,
+            url: LDep,
+            method:  'POST',
+            // crossDomain: true,
+            // xhrFields: { withCredentials: true },
+            success: function(data, status, xhr) {
+                var LD = JSON.parse(data);
+                this.initLaunchData(channel, LD);
+                console.log('xapiChannelHandler ' + channel._name + ': acusplitap launch sequence finished.');
+                this.trigger('launchSequenceFinished');
+            },
+            error: function(data, status, x) {
+                console.log('Error getting Launch Data. Tracking on this channel will not work.');
+            }
+        });
+    },
+
+    initLaunchData: function(channel, LD) {
+       // sets the channel launch data, starting with the LD that was obtained during launch.
+       // provide default values for critical launch data items.
+       channel._LaunchData = null;
+       if (! LD.sessionId) {
+           alert('Error in Launch Data: launch data MUST include the sessionId. Tracking on this channel will not work.');
+           return;
+       }
+       if (! LD.registration) {
+           alert('Error in Launch Data: launch data MUST include the registration. Tracking on this channel will not work.');
+           return;
+       }
+       if (! LD.contextTemplate || LD.contextTemplate == {} ) {
+           alert('Error in Launch Data: launch data MUST include a non-empty contextTemplate. Tracking on this channel will not work.');
+           return;
+       }
+       if (! LD.activityId) { LD.activityID = trackingHub._config._courseID; }
+       if(! LD.returnURL) { 
+           var l = document.createElement("a");
+           a.href = '/econtent';
+           LD.returnURL = new iri.IRI(l.href);
+       }
+       if(! LD.bailoutURL) { LD.bailoutURL = LD.returnURL); }
+       // now verify that activityId is IRI, that returnURL and bailoutURL are IRIS
+       var activityIRI = new iri.IRI(LD.activityId);
+       if (! activityIRI.isAbsolute() {
+           alert('Error in Launch Data: activityId MUST be an absolute IRI. Tracking on this channel will not work.');
+           return;
+       }
+       var returnIRI = new iri.IRI(LD.returnURL);
+       if (! returnIRI.isAbsolute() {
+           alert('Error in Launch Data: returnURL MUST be an absolute IRI. Tracking on this channel will not work.');
+           return;
+       }
+       var bailoutIRI = new iri.IRI(LD.bailoutURL);
+       if (! bailoutIRI.isAbsolute() {
+           alert('Error in Launch Data: bailoutURL MUST be an absolute IRI. Tracking on this channel will not work.');
+           return;
+       }
+       // also, , verify that the following parts of the launch data contain valid data
+       // - contextTemplate: If NON empty object verify that it ONLY has allowed keys
+       var ctKeys = _.keys(LD.contextTemplate);
+       var xtraKeys = _.difference(ctKeys, ['registration', 'instructor', 'team', 'contextActivities', 'revision', 'platform', 'language', 'statement', 'extensions']);
+       if (!_.isEmpty(xtraKeys)) {
+           alert('Error in Launch Data: contextTemplate contains keys that are not allowed in a context for a statement. Tracking on this channel will not work.');
+           return;
+       }
+       if(LD.contextTemplate.contextActivities) {
+           var ctxtActKeys = _.keys(LD.contextTemplate.contextActivities);
+           var xtraActKeys = _.difference(ctxtActKeys, ['parent', 'grouping', 'category', 'other']);
+           if (!_.isEmpty(xtraActKeys) {
+               alert('Error in Launch Data: contextTemplate.contextActivities contains keys that are not allowed fro contextActivities. Tracking on this channel will not work.');
+               return;
+           }
+       }
+       // I'm not going to do deeper checking on the context template for now.
+       // - launchMode one of: Normal, Browse, or Review
+       if (LD.launchMode != 'Normal' && LD.launchMode != 'Browse' && LD.launchMode != 'Review') {
+           alert('Error in Launch Data: launchMode MUST be one of: Normal, Browse, Review. Tracking on this channel will not work.');
+           return;
+       }
+       // - masteryScore: decimal value between 0 and 1 (up to 4 decimals)
+       if (LD.masteryScore) {
+           var newMS = parseFloat(parseFloat(LD.masteryScore).toFixed(4))
+           if (newMS < 0 || neMS > 1) {
+               alert('Error in Launch Data: masteryScore MUST be a decimal number between 0 and 1. Tracking on this channel will not work.');
+               return;
+           }
+           LD.masteryScore = newMS;
+       }
+       // - moveOn, one of Passed, Completed, CompletedAndPassed, CompletedOrPassed, NotApplicable
+       if (LD.moveOn != 'Passed' && LD.moveOn != 'Completed' && LD.moveOn != 'CompletedAndPassed' && LD.moveOn != 'CompletedOrPassed' && LD.moveOn != 'NotApplicable') {
+       // - extraParameters: any object. Nothing to verify.
+       // set the channel._LaunchData
+       channel._LaunchData = LD;
     },
 
     launch_spoor: function(channel, courseID) {
