@@ -105,7 +105,7 @@ define([
           var conf = { actor: this._ACTOR, registration: channel._LaunchData.registration };
           conf.strictCallbacks = true;
           var l = document.createElement("a");
-          l.href = '/xAPI';
+          l.href = '/xAPI/';
           // now l.href contains the complete url (http://whatever.com/xAPI/)
           _.extend(conf, {"endpoint": l.href} );
           _.extend(conf, {"auth": "Basic " + toBase64('nouser:nopassword') });
@@ -142,7 +142,8 @@ define([
           this[launchFName](channel, courseID);
       } else {
           alert('Unknown launch method (' + channel._xapiLaunchMethod + ') specified in config for channel ' + channel._name +
-                '. Please fix it. Tracking will not work on this channel.');
+                '. Please fix it. xAPI content cannot be loaded and tracked without a proper launch. Aborting.');
+          window.location.href = '/';
       }
       // this.trigger('launchSequenceFinished');
     },
@@ -151,17 +152,11 @@ define([
         console.log('xapiChannelHandler ' + channel._name + ': starting acusplitap launch sequence...');
         // actor is nobody@noplace.no
         this._ACTOR = new ADL.XAPIStatement.Agent('mailto:nobody@noplace.no', 'Nobody No');
-        var qs = trackingHub.queryString();
-        var LDep = JSON.parse(qs.LDep);
-        if (! LDep) {
-            alert('Launch method set to acu-splitAP but no LDep query parameter provider. Tracking on this channel will not work.');
-            return;
-        }
         // LRS endpoint is always /xAPI
         // that = this;
         $.ajax({
             context: this,
-            url: LDep,
+            url: '/LD',
             method:  'POST',
             // crossDomain: true,
             // xhrFields: { withCredentials: true },
@@ -172,7 +167,9 @@ define([
                 this.trigger('launchSequenceFinished');
             },
             error: function(data, status, x) {
-                console.log('Error getting Launch Data. Tracking on this channel will not work.');
+                console.log('Error getting Launch Data. Tracking on this channel will not work.', x);
+                alert('Error getting Launch Data. In an acu-splitAP launch, the server side must provide launch data. Aborting.');
+                window.location.href = '/';
             }
         });
     },
@@ -181,39 +178,52 @@ define([
        // sets the channel launch data, starting with the LD that was obtained during launch.
        // provide default values for critical launch data items.
        channel._LaunchData = null;
-       if (! LD.sessionId) {
-           alert('Error in Launch Data: launch data MUST include the sessionId. Tracking on this channel will not work.');
+       if (! LD.activityId) { LD.activityID = trackingHub._config._courseID; }
+       if(! LD.returnURL) { LD.returnURL = '/econtent/units' }
+       var l = document.createElement("a");
+       l.href = LD.returnURL;
+       LD.returnURL = l.href;
+       var returnIRI = new IRIAPI.IRI(LD.returnURL);
+       if (! returnIRI.isAbsolute()) {
+           alert('Error in Launch Data: returnURL MUST be an absolute IRI. Aborting.');
+           window.location.href = '/';
            return;
        }
+       LD.returnURL = returnIRI;
+       if(! LD.bailoutURL) {
+           LD.bailoutURL = LD.returnURL;
+       } else {
+           l.href = LD.bailoutURL;
+           LD.bailoutURL = l.href;
+           var bailoutIRI = new IRIAPI.IRI(LD.bailoutURL);
+           if (! bailoutIRI.isAbsolute()) {
+               alert('Error in Launch Data: bailoutURL MUST be an absolute IRI. Aborting.');
+               window.location.href = '/';
+               return;
+           }
+       }
+       if (! LD.sessionId) {
+           alert('Error in Launch Data: In an acu-splitAP launch, launch data MUST include the sessionId. Aborting.');
+           window.location.href = bailoutIRI;
+           // return;
+       }
        if (! LD.registration) {
-           alert('Error in Launch Data: launch data MUST include the registration. Tracking on this channel will not work.');
+           alert('Error in Launch Data: In an acu-splitAP launch, launch data MUST include the registration. Aborting.');
+           window.location.href = bailoutIRI;
            return;
        }
        if (! LD.contextTemplate || LD.contextTemplate == {} ) {
-           alert('Error in Launch Data: launch data MUST include a non-empty contextTemplate. Tracking on this channel will not work.');
+           alert('Error in Launch Data: In an acu-splitAP launch, launch data MUST include a non-empty contextTemplate. Aborting.');
+           window.location.href = bailoutIRI;
            return;
        }
-       if (! LD.activityId) { LD.activityID = trackingHub._config._courseID; }
-       if(! LD.returnURL) { 
-           var l = document.createElement("a");
-           a.href = '/econtent';
-           LD.returnURL = new iri.IRI(l.href);
-       }
-       if(! LD.bailoutURL) { LD.bailoutURL = LD.returnURL); }
+       if(! LD.launchMode) { LD.launchMode = 'Normal'; }
+
        // now verify that activityId is IRI, that returnURL and bailoutURL are IRIS
-       var activityIRI = new iri.IRI(LD.activityId);
-       if (! activityIRI.isAbsolute() {
-           alert('Error in Launch Data: activityId MUST be an absolute IRI. Tracking on this channel will not work.');
-           return;
-       }
-       var returnIRI = new iri.IRI(LD.returnURL);
-       if (! returnIRI.isAbsolute() {
-           alert('Error in Launch Data: returnURL MUST be an absolute IRI. Tracking on this channel will not work.');
-           return;
-       }
-       var bailoutIRI = new iri.IRI(LD.bailoutURL);
-       if (! bailoutIRI.isAbsolute() {
-           alert('Error in Launch Data: bailoutURL MUST be an absolute IRI. Tracking on this channel will not work.');
+       var activityIRI = new IRIAPI.IRI(LD.activityId);
+       if (! activityIRI.isAbsolute()) {
+           alert('Error in Launch Data: activityId MUST be an absolute IRI. Aborting.');
+           window.location.href = bailoutIRI;
            return;
        }
        // also, , verify that the following parts of the launch data contain valid data
@@ -221,34 +231,44 @@ define([
        var ctKeys = _.keys(LD.contextTemplate);
        var xtraKeys = _.difference(ctKeys, ['registration', 'instructor', 'team', 'contextActivities', 'revision', 'platform', 'language', 'statement', 'extensions']);
        if (!_.isEmpty(xtraKeys)) {
-           alert('Error in Launch Data: contextTemplate contains keys that are not allowed in a context for a statement. Tracking on this channel will not work.');
+           console.log('Extra keys found.', xtraKeys);
+           alert('Error in Launch Data: contextTemplate contains keys that are not allowed in a context for a statement. Aborting.');
+           window.location.href = bailoutIRI;
            return;
        }
        if(LD.contextTemplate.contextActivities) {
            var ctxtActKeys = _.keys(LD.contextTemplate.contextActivities);
            var xtraActKeys = _.difference(ctxtActKeys, ['parent', 'grouping', 'category', 'other']);
-           if (!_.isEmpty(xtraActKeys) {
-               alert('Error in Launch Data: contextTemplate.contextActivities contains keys that are not allowed fro contextActivities. Tracking on this channel will not work.');
+           if (!_.isEmpty(xtraActKeys)) {
+               console.log('Extra keys found.', xtraActKeys);
+               alert('Error in Launch Data: contextTemplate.contextActivities contains keys that are not allowed for contextActivities. Aborting.');
+               window.location.href = bailoutIRI;
                return;
            }
        }
        // I'm not going to do deeper checking on the context template for now.
        // - launchMode one of: Normal, Browse, or Review
        if (LD.launchMode != 'Normal' && LD.launchMode != 'Browse' && LD.launchMode != 'Review') {
-           alert('Error in Launch Data: launchMode MUST be one of: Normal, Browse, Review. Tracking on this channel will not work.');
+           alert('Error in Launch Data: launchMode MUST be one of: Normal, Browse, Review. Aborting.');
+           window.location.href = bailoutIRI;
            return;
        }
        // - masteryScore: decimal value between 0 and 1 (up to 4 decimals)
        if (LD.masteryScore) {
            var newMS = parseFloat(parseFloat(LD.masteryScore).toFixed(4))
-           if (newMS < 0 || neMS > 1) {
-               alert('Error in Launch Data: masteryScore MUST be a decimal number between 0 and 1. Tracking on this channel will not work.');
+           if (newMS < 0 || newMS > 1) {
+               alert('Error in Launch Data: if provided, masteryScore MUST be a decimal number between 0 and 1. Aborting.');
+                window.location.href = bailoutIRI;
                return;
            }
            LD.masteryScore = newMS;
        }
        // - moveOn, one of Passed, Completed, CompletedAndPassed, CompletedOrPassed, NotApplicable
        if (LD.moveOn != 'Passed' && LD.moveOn != 'Completed' && LD.moveOn != 'CompletedAndPassed' && LD.moveOn != 'CompletedOrPassed' && LD.moveOn != 'NotApplicable') {
+           alert('Error in Launch Data: moveOn MUST be one of: Passed, Completed, CompletedAndPassed, CompletedOrPassed, NotApplicable. Aborting.');
+           window.location.href = bailoutIRI;
+           return;
+       }
        // - extraParameters: any object. Nothing to verify.
        // set the channel._LaunchData
        channel._LaunchData = LD;
@@ -366,8 +386,17 @@ define([
     },
 
     deliverMsg: function(message, channel) {
+      if (channel._xapiLaunchMethod == 'acusplitap') {
+          if (document.cookie.indexOf(channel._LaunchData.trkCookieName) == -1) {
+              // tracking cookie is gone. Bail out.
+              alert('Tracking Cookie required. Aborting.');
+              window.location.href = channel._LaunchData.bailoutURL;
+          }
+      }
       this._wrappers[channel._name].sendStatement(message, _.bind(function(err) {
         if (err) {
+          //alert('Error saving data. Aborting.');
+          // window.location.href = channel._LaunchData.bailoutURL;
           throw err;
         }
 
@@ -388,8 +417,17 @@ define([
       // Call the xapiwrapper to save state.
 
       console.log('xapiChannelHandler: state saving');
+      if (channel._xapiLaunchMethod == 'acusplitap') {
+          if (document.cookie.indexOf(channel._LaunchData.trkCookieName) == -1) {
+              // tracking cookie is gone. Bail out.
+              alert('Tracking Cookie required. Aborting.');
+              window.location.href = channel._LaunchData.bailoutURL;
+          }
+      }
       this._wrappers[channel._name].setState(courseID, this._ACTOR, this._STATE_ID, this._REGISTRATION, state, _.bind(function(err) {
         if (err) {
+          // alert('Error saving data. Aborting.');
+          // window.location.href = channel._LaunchData.bailoutURL;
           throw err;
         }
 
@@ -401,6 +439,8 @@ define([
       console.log('xapiChannelHandler: state retrieving');
       this._wrappers[channel._name].getState(courseID, this._ACTOR, this._STATE_ID, this._REGISTRATION, _.bind(function(err, state) {
         if (err) {
+          alert('Error loading data. Aborting.');
+          window.location.href = channel._LaunchData.bailoutURL;
           throw err;
         }
 

@@ -1,9 +1,11 @@
 
 /* IRI utility. Taken from https://github.com/awwright/node-iri */
 
-var api = exports;
+//var api = exports;
 
-api.encodeString = function encodeString(s) {
+IRIAPI = {};
+
+IRIAPI.encodeString = function encodeString(s) {
     var out = "";
     var skip = false;
     var _g1 = 0, _g = s.length;
@@ -46,13 +48,13 @@ api.encodeString = function encodeString(s) {
 /**
  * IRI
  */
-api.IRI = IRI;
+IRIAPI.IRI = IRI;
 function IRI(iri) { this.value = iri; };
 IRI.SCHEME_MATCH = new RegExp("^[a-z0-9-.+]+:", "i");
 //IRI.prototype = new api.RDFNode;
 IRI.prototype.toString = function toString() { return this.value; }
 IRI.prototype.nodeType = function nodeType() { return "IRI"; };
-IRI.prototype.toNT = function toNT() { return "<" + api.encodeString(this.value) + ">"; };
+IRI.prototype.toNT = function toNT() { return "<" + IRIAPI.encodeString(this.value) + ">"; };
 IRI.prototype.n3 = function n3() { return this.toNT(); }
 IRI.prototype.defrag = function defrag() {
     var i = this.value.indexOf("#");
@@ -126,7 +128,7 @@ IRI.prototype.query = function query() {
     if(f < 0) return this.value.slice(q);
     return this.value.substring(q, f)
 }
-api.removeDotSegments = function removeDotSegments(input) {
+IRIAPI.removeDotSegments = function removeDotSegments(input) {
     var output = "";
     var q = 0;
     while(input.length > 0) {
@@ -176,13 +178,13 @@ IRI.prototype.resolveReference = function resolveReference(ref) {
         T.scheme = reference.scheme();
         q = reference.authority();
         T.authority += q!=null ? "//"+q : "";
-        T.path = api.removeDotSegments(reference.path());
+        T.path = IRIAPI.removeDotSegments(reference.path());
         T.query += reference.query()||'';
     }else {
         q = reference.authority();
         if(q != null) {
             T.authority = q!=null ? "//"+q : "";
-            T.path = api.removeDotSegments(reference.path());
+            T.path = IRIAPI.removeDotSegments(reference.path());
             T.query += reference.query()||'';
         }else {
             q = reference.path();
@@ -197,7 +199,7 @@ IRI.prototype.resolveReference = function resolveReference(ref) {
                 }
             }else {
                 if(q.substring(0, 1) == "/") {
-                    T.path = api.removeDotSegments(q);
+                    T.path = IRIAPI.removeDotSegments(q);
                 }else {
                     if(this.path() != null) {
                         var q2 = this.path().lastIndexOf("/");
@@ -208,7 +210,7 @@ IRI.prototype.resolveReference = function resolveReference(ref) {
                     }else {
                         T.path = "/" + q
                     }
-                    T.path = api.removeDotSegments(T.path);
+                    T.path = IRIAPI.removeDotSegments(T.path);
                 }
                 T.query += reference.query()||'';
             }
@@ -257,10 +259,10 @@ IRI.prototype.toIRI = function toIRI(){
 }
 
 // Create a new IRI object and decode UTF-8 escaped characters
-api.fromURI = function fromURI(uri){
+IRIAPI.fromURI = function fromURI(uri){
     return new IRI(uri).toIRI();
 }
 
-api.toIRIString = function toIRIString(uri){
+IRIAPI.toIRIString = function toIRIString(uri){
     return new IRI(uri).toIRIString();
 }

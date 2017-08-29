@@ -41,7 +41,7 @@ define([], function() {
     pending: 0,
     isCacheEnabled: function() {
       // if  launch method is adlxapi, do not use cache at all
-      if (!this.storage || !this.channel || this.channel._xapiLaunchMethod == 'adlxapi') {
+      if (!this.storage || !this.channel || this.channel._xapiLaunchMethod == 'adlxapi' || this.channel._xapiLaunchMethod == 'acusplitap') {
         return false;
       }
 

@@ -23,16 +23,18 @@ define([ 'coreJS/adapt',
       funcName = trackingHub.getValidFunctionName(eventSourceName, eventName);
       if (this.hasOwnProperty(funcName)) {
         statement = new ADL.XAPIStatement();
-        var ctx = {};
-        var template = template || 'CMI5Allowed';
-        if (template == 'CMI5Defined') {
-            ctx = _CMI5DEFINED_CTXT_TEMPLATE;
-        } else if (template == 'CMI5Allowed') {
-            ctx = _CMI5ALLOWED_CTXT_TEMPLATE;
-        }  else {
-        console.log('xapiMessageComposer: requested composing with template but no valid template specified (only CMI5Defined and CMI5Allowed are valid). Using empty context.');
+        if (this._CMI5DEFINED_CTXT_TEMPLATE && _CMI5ALLOWED_CTXT_TEMPLATE) {
+            var ctx = {};
+            var template = template || 'CMI5Allowed';
+            if (template == 'CMI5Defined') {
+                ctx = this._CMI5DEFINED_CTXT_TEMPLATE;
+            } else if (template == 'CMI5Allowed') {
+                ctx = this._CMI5ALLOWED_CTXT_TEMPLATE;
+            }  else {
+            console.log('xapiMessageComposer: requested composing with template but no valid template specified (only CMI5Defined and CMI5Allowed are valid). Using empty context.');
+            }
+            statement.context = ctx;
         }
-        statement.context = ctx;
         statement.timestamp = timestamp;
 
         // If channel not defined or if _generateIds is true/undefined, then generate ids locally
@@ -65,10 +67,11 @@ define([ 'coreJS/adapt',
     },
 
     getCMI5DefinedContextTemplate: function() {
-        return this._CONTEXT_TEMPLATE;
+        return this._CMI5DEFINED_CTXT_TEMPLATE;
     },
 
     getCMI5AllowedContextTemplate: function() {
+        return this._CMI5ALLOWED_CTXT_TEMPLATE;
     },
 
     getXAPIResponse: function(view) {
