@@ -23,7 +23,7 @@ define([ 'coreJS/adapt',
       funcName = trackingHub.getValidFunctionName(eventSourceName, eventName);
       if (this.hasOwnProperty(funcName)) {
         statement = new ADL.XAPIStatement();
-        if (this._CMI5DEFINED_CTXT_TEMPLATE && _CMI5ALLOWED_CTXT_TEMPLATE) {
+        if (this._CMI5DEFINED_CTXT_TEMPLATE!=null && this._CMI5ALLOWED_CTXT_TEMPLATE!=null) {
             var ctx = {};
             var template = template || 'CMI5Allowed';
             if (template == 'CMI5Defined') {
@@ -224,8 +224,8 @@ define([ 'coreJS/adapt',
       statement.verb = ADL.verbs.completed;
       var objKey = trackingHub.getElementKey(args);
       statement.object = new ADL.XAPIStatement.Activity(trackingHub._config._courseID + "#" + objKey);
-      var t = args.get('_component');
-      statement.object.definition = {type: this._ATB + t, name: { 'en-US': t }};
+      var t = args.get('_type');
+      statement.object.definition = {type: this._ATB + t, name: { 'en-US': objKey }};
     }
 
   }, Backbone.Events);
