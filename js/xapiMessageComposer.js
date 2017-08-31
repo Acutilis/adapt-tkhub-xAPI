@@ -7,12 +7,15 @@ define([ 'coreJS/adapt',
     _NAME: 'xapiMessageComposer',
     xapiCustom: { verbs: {}, activityTypes: {} },
     _ATB: 'http://adaptlearning.org/xapi/activities/',
+    _CMI5DEFINED_CTXT_TEMPLATE: null,
+    _CMI5ALLOWED_CTXT_TEMPLATE: null,
 
     initialize: function() {
       this.setCustomVerbs();
     },
 
-    compose: function (eventSourceName, eventName, args, channel) {
+    compose: function (eventSourceName, eventName, args, channel, template) {
+      // template is null or a string: CMI5Defined or CMI5Allowed
       var statementParts;
       var statement;
       var timestamp = new Date(Date.now()).toISOString();
@@ -20,6 +23,18 @@ define([ 'coreJS/adapt',
       funcName = trackingHub.getValidFunctionName(eventSourceName, eventName);
       if (this.hasOwnProperty(funcName)) {
         statement = new ADL.XAPIStatement();
+        if (this._CMI5DEFINED_CTXT_TEMPLATE!=null && this._CMI5ALLOWED_CTXT_TEMPLATE!=null) {
+            var ctx = {};
+            var template = template || 'CMI5Allowed';
+            if (template == 'CMI5Defined') {
+                ctx = this._CMI5DEFINED_CTXT_TEMPLATE;
+            } else if (template == 'CMI5Allowed') {
+                ctx = this._CMI5ALLOWED_CTXT_TEMPLATE;
+            }  else {
+            console.log('xapiMessageComposer: requested composing with template but no valid template specified (only CMI5Defined and CMI5Allowed are valid). Using empty context.');
+            }
+            statement.context = ctx;
+        }
         statement.timestamp = timestamp;
 
         // If channel not defined or if _generateIds is true/undefined, then generate ids locally
@@ -33,6 +48,30 @@ define([ 'coreJS/adapt',
         return (statement);
       }
       return (null);
+    },
+
+    setContextTemplate(ctx) {
+        // sets both the cmi5defined and the cmi5allowed templates
+        // they only differ in the category being cmi5 or not.
+        this._CMI5DEFINED_CTXT_TEMPLATE = ctx;
+        var allowedctx = $.extend(true,{},ctx);
+        // look in context.contextActivities.category, and if any has the
+        // id of https://w3id.org/xapi/cmi5/context/categories/cmi5  remove it
+        var index = _.findIndex(allowedctx.contextActivities.category, function(item) {
+            return (item['id'] == 'https://w3id.org/xapi/cmi5/context/categories/cmi5');
+        });
+        if (index > -1) {
+          allowedctx.contextActivities.category.splice(index, 1);
+        }
+        this._CMI5ALLOWED_CTXT_TEMPLATE = allowedctx;
+    },
+
+    getCMI5DefinedContextTemplate: function() {
+        return this._CMI5DEFINED_CTXT_TEMPLATE;
+    },
+
+    getCMI5AllowedContextTemplate: function() {
+        return this._CMI5ALLOWED_CTXT_TEMPLATE;
     },
 
     getXAPIResponse: function(view) {
@@ -185,8 +224,8 @@ define([ 'coreJS/adapt',
       statement.verb = ADL.verbs.completed;
       var objKey = trackingHub.getElementKey(args);
       statement.object = new ADL.XAPIStatement.Activity(trackingHub._config._courseID + "#" + objKey);
-      var t = args.get('_component');
-      statement.object.definition = {type: this._ATB + t, name: { 'en-US': t }};
+      var t = args.get('_type');
+      statement.object.definition = {type: this._ATB + t, name: { 'en-US': objKey }};
     }
 
   }, Backbone.Events);
