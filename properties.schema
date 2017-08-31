@@ -4,6 +4,14 @@
   "id": "http://jsonschema.net",
   "required":false,
   "globals": {
+    "ariaRegion": {
+      "type": "string",
+      "required": true,
+      "default": "This component requires learnings to sync there xAPI data before proceeding.",
+      "inputType": "Text",
+      "validators": [],
+      "translatable": true
+    }
   },
   "properties" : {
     "pluginLocations" : {
@@ -96,6 +104,24 @@
                        "inputType" : { "type" : "Boolean", "options" : [ false, true ] },
                        "validators" : [],
                        "help" : "If set to 'true', this channel will be responsible for performing the launch sequence, which acquires the user identity (and possibly other info)."
+                     },
+                     "_isCachedLocally" : {
+                       "type" : "boolean",
+                       "required" : true,
+                       "default" : false,
+                       "title" : "Cache state and statements locally",
+                       "inputType" : { "type" : "Boolean", "options" : [ false, true ] },
+                       "validators" : [],
+                       "help" : "If set to 'true', this channel will store state/statements locally before being sent to the LRS. In the event of connection problem the state will be available through the local cache and statements will be sent when the LRS is reachable."
+                     },
+                     "_isMobile" : {
+                       "type" : "boolean",
+                       "required" : true,
+                       "default" : false,
+                       "title" : "Try to work despite lack of internet connection",
+                       "inputType" : { "type" : "Boolean", "options" : [ false, true ] },
+                       "validators" : [],
+                       "help" : "If set to 'true', this channel will attempt to work despite internet connectivity issues. If unable to retrieve remote state locally cached state or an empty default state will be used."
                      },
                      "_ignoreEvents" : {
                        "type" : "array",
@@ -190,6 +216,15 @@
                        "required" : false,
                        "validators" : [],
                        "help" : "The password to authenticate on the backend of this channel"
+                     },
+                     "_generateIds" : {
+                       "type" : "boolean",
+                       "inputType" : { "type" : "Boolean", "options" : [ true, false ] },
+                       "title" : "Generate Statement Ids",
+                       "default" : true,
+                       "required" : false,
+                       "validators" : [],
+                       "help" : "Controls if statement ids are generated locally (true) or by the LRS (false)"
                      }
                    }
                  }

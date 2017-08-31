@@ -12,22 +12,65 @@ define([ 'coreJS/adapt',
       this.setCustomVerbs();
     },
 
-    compose: function (eventSourceName, eventName, args) {
+    compose: function (eventSourceName, eventName, args, channel) {
       var statementParts;
       var statement;
       var timestamp = new Date(Date.now()).toISOString();
 
       funcName = trackingHub.getValidFunctionName(eventSourceName, eventName);
       if (this.hasOwnProperty(funcName)) {
-        statement = new ADL.XAPIStatement(); 
+        statement = new ADL.XAPIStatement();
         statement.timestamp = timestamp;
-        statement.generateId();
+
+        // If channel not defined or if _generateIds is true/undefined, then generate ids locally
+        if (!channel || (channel._generateIds || _.isUndefined(channel._generateIds))) {
+          statement.generateId();
+        }
+
         // Call the specific composing function for this event
         // it will add things to the statement.
-        this[funcName](statement,args); 
+        this[funcName](statement,args);
         return (statement);
       }
       return (null);
+    },
+
+    getXAPIResponse: function(view) {
+      var type = view.getResponseType();
+      var response = view.getResponse();
+
+      //, choice, fill-in, long-fill-in, matching, performance, sequencing, likert, numeric or other
+      switch(type) {
+      case 'true-false':
+        if (!response || response === "false" || response === "0") {
+          return 'false';
+        }
+
+        return 'true';
+      case 'performance':
+      case 'sequencing':
+      case 'choice':
+        var selected = response.split(',');
+        return selected.join('[,]');
+      case 'fill-in':
+      case 'long-fill-in':
+        return response;
+      case 'matching':
+        var pairs = response.split('#');
+        response = pairs.join('[,]');
+        var parts = response.split('.');
+        return parts.join('[.]');
+      case 'ikert':
+      case 'numeric':
+        // TODO this really should handle ranges, which is not
+        // supported by SCORM (AFAIK)
+      case 'other':
+        return response;
+      default:
+        throw new Error('Inexpected response type: ' + type);
+      }
+
+      return response;
     },
 
     addCustomComposingFunction: function(eventSourceName, eventName, func) {
@@ -76,26 +119,46 @@ define([ 'coreJS/adapt',
       statement.object.definition = {type: this._ATB + t, name: { 'en-US': t }};
     },
 
+    Adapt_questionView_recordInteraction: function(statement, args) {
+      // answered question
+      statement.verb = ADL.verbs.answered;
+      var objKey = trackingHub.getElementKey(args.model);
+      statement.object = new ADL.XAPIStatement.Activity(trackingHub._config._courseID + "#" + objKey);
+      var t = args.model.get('_component');
+      statement.object.definition = {type: this._ATB + t, name: { 'en-US': t }};
+
+      var response = '';
+      if (typeof args.getResponse === 'function' && typeof args.getResponseType === 'function') {
+        response = this.getXAPIResponse(args);
+      } else if (args.model.has('_userAnswer')) {
+        response = args.model.get('_userAnswer');
+      }
+
+      var resultObj = {
+        score: { raw: args.model.get('_score') },
+        success: args.model.get('_isCorrect'),
+        completion: true,
+        response: response
+      }
+      statement.result = resultObj;
+    },
+
     components_change__isComplete: function (statement, args) {
+      // Don't track _isComplete === false
+      if (!args.get('_isComplete')) {
+        return false;
+      }
+
       // completed interaction
       statement.verb = ADL.verbs.completed;
       var objKey = trackingHub.getElementKey(args);
       statement.object = new ADL.XAPIStatement.Activity(trackingHub._config._courseID + "#" + objKey);
       var t = args.get('_component');
       statement.object.definition = {type: this._ATB + t, name: { 'en-US': t }};
-      if (args.get('_isQuestionType')) {
-        var resultObj = {
-          score: { raw: args.get('_score') },
-          success: args.get('_isCorrect'),
-          completion: true,
-          response: JSON.stringify(args.get('_userAnswer')),
-        }
-        statement.result = resultObj;
-      }
     },
 
-    Adapt_assessments_complete: function (statement, args) { 
-      // completed assessment 
+    Adapt_assessments_complete: function (statement, args) {
+      // completed assessment
       statement.verb = ADL.verbs.completed;
       statement.object = new ADL.XAPIStatement.Activity(trackingHub._config._courseID + "#" + args.id);
       var t = args.type;
@@ -131,4 +194,3 @@ define([ 'coreJS/adapt',
   XapiMessageComposer.initialize();
   return (XapiMessageComposer);
 });
-

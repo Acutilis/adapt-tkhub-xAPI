@@ -15,7 +15,7 @@ There are plans to implement other launch methods in the future:
 - LTI
 
 
-**Important**: This extension works with [adapt-trackingHub](#), so it is required that it be installed and enabled in your course.
+**Important**: This extension works with [adapt-trackingHub](https://github.com/Acutilis/adapt-trackingHub), so it is required that it be installed and enabled in your course.
 
 This extension uses the [xAPI Wrapper library](https://github.com/adlnet/xAPIWrapper) provided by ADL.
 
@@ -54,20 +54,23 @@ The following settings are _specific_ for the adapt-tkhub-xAPI extension:
 - `_endPoint`: It is the endPoint for the LRS that you want to use. You only need to specify this setting if your channel uses the 'hardcoded' or 'spoor' launch methods.
 - `_userName`: A username for basic authentication in the LRS. You only need to specfy this setting if your channel uses the 'harcoded' or 'spoor' launch methods.
 - `_password`: The password for basic authentication in the LRS.  You only need to specfy this setting if your channel uses the 'harcoded' or 'spoor' launch methods.
+- `_isCachedLocally`: True or false (defaults to false). If set to 'true', this channel will store state/statements locally (in the browser) before being sent to the LRS. In the event of connection problem the state will be available through the local cache and statements will be sent when the LRS is reachable.
+- `_isMobile`: True or false (defaults to false). If set to 'true', this channel will attempt to work despite internet connectivity issues. If unable to retrieve remote state locally cached state or an empty default state will be used.
+- `_generateIds`: True or false (defaults to true). Controls if statement ids are generated locally (true) or by the LRS (false)
 
-As you can see, some settings are specific to some launch methods. However, there is no harm if you set them all in the configuration, as shown in [example.json](#). The extension will only use the ones it needs, depending on the launch method selected.
+As you can see, some settings are specific to some launch methods. However, there is no harm if you set them all in the configuration, as shown in [example.json](https://github.com/Acutilis/adapt-tkhub-xAPI/blob/master/example.json). The extension will only use the ones it needs, depending on the launch method selected.
+
+**Important**: The settings related to caching are irrelevant if the launch method is 'adlxapi', and no caching will be done in this environment. The adl-xapi-launch algorithm involves a launch server that provides a proxy to the LRS. The algorithm requires that this server/proxy maintains a pretty tight control on the sessions/launches, apparently accepting only data that was generated in the current session. The proxy also modifies the statements before forwarding them to the LRS (adding some context data, if not already there, and signing the statement!). All this seems to interfere with the normal caching/recovering technique that works with the other launch enviroments (where statements cached from a _past_ session are sent in a newer session). Maybe it's possible to do get it to work, but this is not a priority right now.
+
+**About Statement Id generation**: According to the xAPI specification:
+1) Learning Record Providers SHOULD generate the statement Id (an UUID) and put it in the statement before sending it to the LRS, so when the LRS receives it, it will store it (if it is a valid, correct statement) with that id.
+2) If the LRS receives a statement without an Id, (but the rest of the statement is correct), the LRS should generate and assign an Id to the statement before storing it.
+3) If the LRS receives a statement with an Id and it already has a statement with that Id, but the statements are not equal (equality as defined in xAPI), then the LRS will NOT store the incoming statement.
+
+There exists the possibility (and it has been experienced by a contributor/user of this extension) that javascript generates Id that it has generated before (something which, in theory, should never happen) thus assigning the 'same' Id to different statements. This would cause the LRS to reject the statement with the 'duplicate id'. A solution to this is to not follow recommendation 1 and just let the LRS generate all Ids.
+
+For this reason, a setting (_generateIds_) has been provided so that the course author can choose whether to generate Ids locally or not.
 
 ## Further information
 
-For more in-deph information, please visit the Wiki.
-
-- Launch methods
-    - Hardcoded
-    - Rustici
-    - ADL xapi-launch
-    - Spoor
-    - CMI5
-    - LTI
-- How statements are constructed
-- What is tracked
-
+For more in-deph information, please visit the [Wiki](https://github.com/Acutilis/adapt-tkhub-xAPI/wiki).
