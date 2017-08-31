@@ -8,11 +8,7 @@ It implements several launch methods, so you can use your Adapt course in differ
 - [ADL xapi-launch](https://github.com/adlnet/xapi-launch)
 - Spoor (custom method to allow xAPI tracking from within SCORM packages, specific to Adapt with adapt-contrib-spoor)
 - Hardcoded (just for testing purposes, not to be used in a real xAPI enviroment).
-
-There are plans to implement other launch methods in the future:
-
-- CMI5
-- LTI
+- [acu-splitAP-launch](https://github.com/Acutilis/acu-splitAP-launch)
 
 
 **Important**: This extension works with [adapt-trackingHub](https://github.com/Acutilis/adapt-trackingHub), so it is required that it be installed and enabled in your course.
