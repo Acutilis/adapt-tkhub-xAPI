@@ -14,6 +14,7 @@ define([
     _STATE_ID: 'ACTIVITY_STATE',
     _OWNSTATEKEY: 'xapi',
     _OWNSTATE: null,
+    _COMPOSER: msgComposer,
 
     // data that might be set by the launch sequence. 
     _ACTOR: null,
