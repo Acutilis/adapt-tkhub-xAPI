@@ -113,7 +113,7 @@ define([ 'coreJS/adapt',
     },
 
     addCustomComposingFunction: function(eventSourceName, eventName, func) {
-      func_name = this.getValidFunctionName(eventSourceName, eventName);
+      func_name = trackingHub.getValidFunctionName(eventSourceName, eventName);
       this[func_name] = func;
     },
 
