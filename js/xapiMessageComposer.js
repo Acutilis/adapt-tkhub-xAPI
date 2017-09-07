@@ -117,7 +117,6 @@ define([ 'coreJS/adapt',
       this[func_name] = func;
     },
 
-    // this function is not used. Shoud be removed.
     setCustomVerbs: function() {
       // tcr stands for TinCan Registry: https://registry.tincanapi.com/
       this.xapiCustom.verbs['tcr_viewed'] = new ADL.XAPIStatement.Verb(
@@ -135,7 +134,7 @@ define([ 'coreJS/adapt',
     //Adapt_adapt_start: function (statement, args) {
     trackingHub_course_launch: function (statement, args) {
       // course started.
-      statement.verb = this.xapiCustom.verbs.tcr_launched;
+      statement.verb = ADL.verbs.initialized;
       statement.object = new ADL.XAPIStatement.Activity(trackingHub._config._courseID);
     },
 
