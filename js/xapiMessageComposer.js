@@ -9,6 +9,7 @@ define([ 'coreJS/adapt',
     _ATB: 'http://adaptlearning.org/xapi/activities/',
     _CMI5DEFINED_CTXT_TEMPLATE: null,
     _CMI5ALLOWED_CTXT_TEMPLATE: null,
+    _current_channel: null,   // will be updated on each call to 'compose'. We need access to the Lauch Data!
 
     initialize: function() {
       this.setCustomVerbs();
@@ -23,6 +24,7 @@ define([ 'coreJS/adapt',
       funcName = trackingHub.getValidFunctionName(eventSourceName, eventName);
       if (this.hasOwnProperty(funcName)) {
         statement = new ADL.XAPIStatement();
+        this._current_channel = channel;
         if (this._CMI5DEFINED_CTXT_TEMPLATE!=null && this._CMI5ALLOWED_CTXT_TEMPLATE!=null) {
             var ctx = {};
             var template = template || 'CMI5Allowed';
@@ -131,18 +133,29 @@ define([ 'coreJS/adapt',
     /*****  Specific composing functions   *****/
     /*******************************************/
 
+    getActivityBase: function() {
+      var ab;
+      if (this._current_channel._xapiLaunchMethod == 'acusplitap') {
+        ab = this._current_channel._LaunchData.activityId;
+      } else {
+        ab = trackingHub._config._courseID;
+      }
+      return ab;
+    },
+
     //Adapt_adapt_start: function (statement, args) {
     trackingHub_course_launch: function (statement, args) {
       // course started.
       statement.verb = ADL.verbs.initialized;
-      statement.object = new ADL.XAPIStatement.Activity(trackingHub._config._courseID);
+      statement.object = new ADL.XAPIStatement.Activity(this.getActivityBase());
     },
 
     Adapt_router_menu: function (statement, args) {
       // visited menu
       statement.verb = this.xapiCustom.verbs.tcr_viewed;
       var objKey = trackingHub.getElementKey(args);
-      statement.object = new ADL.XAPIStatement.Activity(trackingHub._config._courseID + "#" + objKey);
+      //statement.object = new ADL.XAPIStatement.Activity(trackingHub._config._courseID + "#" + objKey);
+      statement.object = new ADL.XAPIStatement.Activity(this.getActivityBase() + "#" + objKey);
       // TODO: at some point, parts of the statement should be configurable
       statement.object.definition = {type: this._ATB + 'menu', name: { 'en-US': 'menu' }};
 
@@ -152,7 +165,7 @@ define([ 'coreJS/adapt',
       // visited page
       statement.verb = this.xapiCustom.verbs.tcr_viewed;
       var objKey = trackingHub.getElementKey(args);
-      statement.object = new ADL.XAPIStatement.Activity(trackingHub._config._courseID + "#" + objKey);
+      statement.object = new ADL.XAPIStatement.Activity(this.getActivityBase() + "#" + objKey);
       var t = args.get('_type');
       statement.object.definition = {type: this._ATB + t, name: { 'en-US': t }};
     },
@@ -161,7 +174,7 @@ define([ 'coreJS/adapt',
       // answered question
       statement.verb = ADL.verbs.answered;
       var objKey = trackingHub.getElementKey(args.model);
-      statement.object = new ADL.XAPIStatement.Activity(trackingHub._config._courseID + "#" + objKey);
+      statement.object = new ADL.XAPIStatement.Activity(this.getActivityBase() + "#" + objKey);
       var t = args.model.get('_component');
       statement.object.definition = {type: this._ATB + t, name: { 'en-US': t }};
 

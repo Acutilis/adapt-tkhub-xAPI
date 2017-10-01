@@ -179,7 +179,7 @@ define([
        // sets the channel launch data, starting with the LD that was obtained during launch.
        // provide default values for critical launch data items.
        channel._LaunchData = null;
-       if (! LD.activityId) { LD.activityID = trackingHub._config._courseID; }
+       if (! LD.activityId) { LD.activityId = trackingHub._config._courseID; }
        if(! LD.returnURL) { LD.returnURL = '/econtent/units' }
        var l = document.createElement("a");
        l.href = LD.returnURL;
