@@ -1,3 +1,10 @@
+# NOTE: IMPORTANT - deprecated
+
+For xAPI tracking in Adapt, there is a new plugin: [https://github.com/Acutilis/adapt-alt-xAPI](https://github.com/Acutilis/adapt-alt-xAPI). It is simpler to set up than adapt-tkhub-xAPI.
+
+Please use the [newer plugin](https://github.com/Acutilis/adapt-alt-xAPI).
+
+
 # adapt-tkhub-xAPI
 
 An Adapt extension for adapt-trackingHub that implements xAPI tracking. It can send xAPI statements to an LRS, and save and load the state to/from the LRS.
